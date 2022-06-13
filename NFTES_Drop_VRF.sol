@@ -76,7 +76,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
     // NFT Description & URL
     bytes data = "";
     uint256 totalNFTsMinted; //Total NFTs
-    uint256 numOfCopies; //A user can mint only 1 NFT
+    uint256 public constant numOfCopies=1; //A user can mint only 1 NFT
     uint256 mintFees;
 
     //Initial Minting
@@ -128,7 +128,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
     constructor()  ERC1155(""){
 
         totalNFTsMinted = 0; //Total NFTs Minted
-        numOfCopies = 1; //A user can mint only 1 NFT in one call
+        //numOfCopies = 1; //A user can mint only 1 NFT in one call
         
         //Initially 0 NFTs have been minted
         Diamond = 0;
