@@ -86,24 +86,28 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
     uint256 Gold;
     uint256 Silver;
 
-    uint8 _maxNFTs;
+    uint _maxNFTs;
     //Max mint Slots
     uint256 maxDiamondCount=33;
     uint256 maxGoldCount=100;
     uint256 maxSilverCount=200;
 
-    uint _noOfCategories;
+    uint8 _noOfCategories;
 
     uint256 _maxMints=0;
     event isMinted(address indexed addr, string[]  ids);
 
     //Struct Category for category details
     struct Category {
-        uint8 categoryID;
         string categoryName;
         uint categoryNftCount;
         string categoryIpfsHash;
+        uint categoryMintedCount;
+        
     }
+
+
+    Category[] categoriesArray;
     
     //owner-NFT-ID Mapping
     //Won NFTs w.r.t Addresses
@@ -113,10 +117,14 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
 
     mapping(address => nft_Owner) dropsite_NFT_Owner;
     
+    //ID-Category mapping
+    mapping(uint => Category) CategoryDetails;
     
     //payments Mapping  
     mapping(address => uint256) deposits;
    
+   //categoryWise no of mints
+   mapping(uint=>uint) categoryMints;
 
     //Pausing and activating the contract
     modifier contractIsNotPaused() {
@@ -137,7 +145,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
 
     mapping (uint=>string) tokenURI;
     event URI(string value, bytes indexed id);
-
+    event CategoriesSet(Category);
     constructor()  ERC1155(""){
 
         totalNFTsMinted = 0; //Total NFTs Minted
@@ -147,6 +155,8 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
         Diamond = 0;
         Gold = 0;
         Silver = 0;
+        _noOfCategories=0;
+        _maxNFTs =0;
     }
 
     function name() public pure returns(string memory){
@@ -201,16 +211,23 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
 
     //maxNFTs is the total NFTs that can be minted in Dropsite
     //noOfCategories is the number of categories for which the total NFTs will be distributed
-    function setCategoriesAndMaxNFTs(uint noOfCategories, uint8 maxNFTs) public onlyOwner {
-        require((_noOfCategories!=0) && (_maxNFTs!=0), "Already Set");
+    function setCategoriesAndMaxNFTs(uint8 noOfCategories, uint maxNFTs, string[] memory categoryNames, uint[] memory nftCounts, string[] memory ipfsHashes) public onlyOwner {
+        require((_noOfCategories==0) && (_maxNFTs==0), "Already Set");
         _noOfCategories = noOfCategories;
         _maxNFTs = maxNFTs;
-        Category[] memory categoriesArray= new Category[] (_noOfCategories);
+        //Category memory category;
+        //categoriesArray= new Category[] (_noOfCategories);
+        
         for(uint8 i=0;i<_noOfCategories;i++){
-            categoriesArray[i].categoryID = i;
+            //category = Category(categoryNames[i],nftCounts[i],ipfsHashes[i]);
+            CategoryDetails[i].categoryName = categoryNames[i];
+            CategoryDetails[i].categoryNftCount = nftCounts[i];
+            CategoryDetails[i].categoryIpfsHash = ipfsHashes[i];
+            CategoryDetails[i].categoryMintedCount = 0;
+            emit CategoriesSet(CategoryDetails[i]);
+            //categoriesArray.push(category);     
         }
     }
-
     function setMintFee( uint _mintFee) public onlyOwner{
         mintFees = _mintFee;
     }
@@ -262,33 +279,33 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
         returns (uint256)
     {
         uint nftId;
-        if((index).mod(10) == 1 && Diamond < maxDiamondCount){
-            Diamond++;
+        if((index).mod(10) == 1 && CategoryDetails[0].categoryMintedCount < CategoryDetails[0].categoryNftCount){
+            CategoryDetails[0].categoryMintedCount++;
             data = bytes(string(
-                abi.encodePacked("Diamond_", Strings.toString(Diamond))
+                abi.encodePacked(CategoryDetails[0].categoryName, Strings.toString(CategoryDetails[0].categoryMintedCount))
             ));
             return nftId=0;
             // if nftID is 0 and Diamond is more than 33, it will go there in Gold Category
-        } else if ((index).mod(10) <= 4 && Gold < maxGoldCount) {
-            Gold++;
-            data = bytes(string(abi.encodePacked("Gold_", Strings.toString(Gold))));
+        } else if ((index).mod(10) <= 4 && CategoryDetails[1].categoryMintedCount < CategoryDetails[1].categoryNftCount) {
+            CategoryDetails[0].categoryMintedCount++;
+            data = bytes(string(abi.encodePacked(CategoryDetails[0].categoryName, Strings.toString(CategoryDetails[0].categoryMintedCount))));
             return nftId=1;
             // if any of the above conditions are filled it will mint silver if enough silver available
-        } else if ((index).mod(10) > 4 && Silver < maxSilverCount) {
-            Silver++;
+        } else if ((index).mod(10) > 4 && CategoryDetails[2].categoryMintedCount < CategoryDetails[2].categoryNftCount) {
+            CategoryDetails[2].categoryMintedCount++;
             data = bytes(string(
-                abi.encodePacked("Silver_", Strings.toString(Silver))
+                abi.encodePacked(CategoryDetails[2].categoryName, Strings.toString(CategoryDetails[2].categoryMintedCount))
             ));
             return nftId=2;
         } else {
 
             //if nft ID is either 1 or 2, but Slots in Gold or Diamond are remaining,
             //First Gold category will be filled then Diamond
-            if (Silver < maxSilverCount) {
+            if (CategoryDetails[2].categoryMintedCount < CategoryDetails[2].categoryNftCount) {
                 nftId = 1;
-                Silver++;
+                CategoryDetails[2].categoryMintedCount++;
                 data = bytes(string(
-                    abi.encodePacked("Silver_", Strings.toString(Gold))
+                    abi.encodePacked(CategoryDetails[2].categoryName, Strings.toString(CategoryDetails[2].categoryMintedCount))
                 ));
                 return nftId;
             }
