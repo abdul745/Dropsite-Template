@@ -75,22 +75,26 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
      //NFT category
     // NFT Description & URL
     bytes data = "";
-    uint256 totalNFTsMinted; //Total NFTs
-    uint256 public constant numOfCopies=1; //A user can mint only 1 NFT
-    uint256 mintFees;
+    uint256 totalNFTsMinted; //Total NFTs Minted
+    uint8 public constant numOfCopies=1; //A user can mint only 1 NFT in one go
+    uint256 mintFees;       //Mint fee for single random minting
+
+    
 
     //Initial Minting
     uint256 Diamond;
     uint256 Gold;
     uint256 Silver;
 
-    uint maxMintLimit = 333;
+    uint8 _maxNFTs;
     //Max mint Slots
     uint256 maxDiamondCount=33;
     uint256 maxGoldCount=100;
     uint256 maxSilverCount=200;
 
-    uint256 maxMints=0;
+    uint _noOfCategories;
+
+    uint256 _maxMints=0;
     event isMinted(address indexed addr, string[]  ids);
     //owner-NFT-ID Mapping
     //Won NFTs w.r.t Addresses
@@ -116,7 +120,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
     }
 
     modifier maxMintingIsSet() {
-        require(maxMints != 0, "Owner Should set Max Mints First");
+        require(_maxMints != 0, "Owner Should set Max Mints First");
         _;
     }
 
@@ -180,16 +184,31 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
     }
 
 
-    function setStatusMintFeeAndMaxMints(bool mintStatus, uint _mintFee, uint _maxMints) public onlyOwner {
-        mintFees = _mintFee;
+    function setMaxMints(uint maxMints) public onlyOwner 
+    {
         require(_maxMints<=5,"Max Mint Set limit is 5");
-        maxMints = _maxMints;
-        if(isPaused!=mintStatus)
-        isPaused = mintStatus;
+        _maxMints=maxMints;
     }
 
+    //maxNFTs is the total NFTs that can be minted in Dropsite
+    //noOfCategories is the number of categories for which the total NFTs will be distributed
+    function setCategoriesAndMaxNFTs(uint noOfCategories, uint8 maxNFTs) public onlyOwner {
+        require((_noOfCategories!=0) && (_maxNFTs!=0), "Already Set");
+        _noOfCategories = noOfCategories;
+        _maxNFTs = maxNFTs;
+    }
+
+    function setMintFee( uint _mintFee) public onlyOwner{
+        mintFees = _mintFee;
+    }
+     function setMintStatus(bool mintStatus) public onlyOwner{
+        if(isPaused!=mintStatus)
+        isPaused = mintStatus;
+     }
+
+
     function getStatusMintFeeAndMaxMints() public view onlyOwner  returns (bool,uint,uint){
-        return (isPaused,mintFees,maxMints);
+        return (isPaused,mintFees,_maxMints);
     }
 
     //To Check total Minted NFTs
@@ -313,8 +332,8 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
         maxMintingIsSet
         returns (string[] memory)
     {
-        require(noOfMints <= maxMints && noOfMints>0, "You cannot mint more than max mint limit");
-        require((totalNFTsMinted+noOfMints) <= maxMintLimit, "Max Minting Limit reached");
+        require(noOfMints <= _maxMints && noOfMints>0, "You cannot mint more than max mint limit");
+        require((totalNFTsMinted+noOfMints) <= _maxNFTs, "Max Minting Limit reached");
         uint returnedNftID;
         bytes memory returnedNftData;
         string[] memory randomMintedNfts = new string[](noOfMints);
@@ -342,8 +361,8 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
         maxMintingIsSet
         returns (string[] memory)
     {
-        require(noOfMints <= maxMints && noOfMints>0, "You cannot mint more than max mint limit");
-        require((totalNFTsMinted+noOfMints) <= maxMintLimit, "Max Minting Limit reached");
+        require(noOfMints <= _maxMints && noOfMints>0, "You cannot mint more than max mint limit");
+        require((totalNFTsMinted+noOfMints) <= _maxNFTs, "Max Minting Limit reached");
         require(msg.value == mintFees.mul(noOfMints), "Not Enough Balance");
         uint returnedNftID;
         bytes memory returnedNftData;
