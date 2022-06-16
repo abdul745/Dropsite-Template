@@ -96,6 +96,15 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
 
     uint256 _maxMints=0;
     event isMinted(address indexed addr, string[]  ids);
+
+    //Struct Category for category details
+    struct Category {
+        uint8 categoryID;
+        string categoryName;
+        uint categoryNftCount;
+        string categoryIpfsHash;
+    }
+    
     //owner-NFT-ID Mapping
     //Won NFTs w.r.t Addresses
     struct nft_Owner {
@@ -196,6 +205,10 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(395) {
         require((_noOfCategories!=0) && (_maxNFTs!=0), "Already Set");
         _noOfCategories = noOfCategories;
         _maxNFTs = maxNFTs;
+        Category[] memory categoriesArray= new Category[] (_noOfCategories);
+        for(uint8 i=0;i<_noOfCategories;i++){
+            categoriesArray[i].categoryID = i;
+        }
     }
 
     function setMintFee( uint _mintFee) public onlyOwner{
