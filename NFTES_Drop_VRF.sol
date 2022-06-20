@@ -7,108 +7,103 @@ import "./SafeMath.sol";
 import "./VRFCoordinatorV2Interface.sol";
 import "./VRFConsumerBaseV2.sol";
 
-
 contract VRFv2Consumer is VRFConsumerBaseV2 {
-  VRFCoordinatorV2Interface COORDINATOR;
+    VRFCoordinatorV2Interface COORDINATOR;
 
-  // Your subscription ID.
-  uint64 s_subscriptionId;
+    // Your subscription ID.
+    uint64 s_subscriptionId;
 
-  // Rinkeby coordinator. For other networks,
-  // see https://docs.chain.link/docs/vrf-contracts/#configurations
-  address vrfCoordinator = 0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed
+    // Rinkeby coordinator. For other networks,
+    // see https://docs.chain.link/docs/vrf-contracts/#configurations
+    address vrfCoordinator = 0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed;
 
-;
+    // The gas lane to use, which specifies the maximum gas price to bump to.
+    // For a list of available gas lanes on each network,
+    // see https://docs.chain.link/docs/vrf-contracts/#configurations
+    bytes32 keyHash =
+        0x4b09e658ed251bcafeebbc69400383d49f344ace09b9576fe248bb02c003fe9f;
 
-  // The gas lane to use, which specifies the maximum gas price to bump to.
-  // For a list of available gas lanes on each network,
-  // see https://docs.chain.link/docs/vrf-contracts/#configurations
-  bytes32 keyHash = 0x4b09e658ed251bcafeebbc69400383d49f344ace09b9576fe248bb02c003fe9f;
+    // Depends on the number of requested values that you want sent to the
+    // fulfillRandomWords() function. Storing each word costs about 20,000 gas,
+    // so 100,000 is a safe default for this example contract. Test and adjust
+    // this limit based on the network that you select, the size of the request,
+    // and the processing of the callback request in the fulfillRandomWords()
+    // function.
+    uint32 callbackGasLimit = 100000;
 
-  // Depends on the number of requested values that you want sent to the
-  // fulfillRandomWords() function. Storing each word costs about 20,000 gas,
-  // so 100,000 is a safe default for this example contract. Test and adjust
-  // this limit based on the network that you select, the size of the request,
-  // and the processing of the callback request in the fulfillRandomWords()
-  // function.
-  uint32 callbackGasLimit = 100000;
+    // The default is 3, but you can set this higher.
+    uint16 requestConfirmations = 1;
 
-  // The default is 3, but you can set this higher.
-  uint16 requestConfirmations = 1;
+    // For this example, retrieve 2 random values in one request.
+    // Cannot exceed VRFCoordinatorV2.MAX_NUM_WORDS.
+    uint32 numWords = 1;
 
-  // For this example, retrieve 2 random values in one request.
-  // Cannot exceed VRFCoordinatorV2.MAX_NUM_WORDS.
-  uint32 numWords =  1;
+    uint256[] public s_randomWords;
+    uint256 public s_requestId;
 
-  uint256[] public s_randomWords;
-  uint256 public s_requestId;
+    constructor(uint64 subscriptionId) VRFConsumerBaseV2(vrfCoordinator) {
+        COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
+        s_subscriptionId = subscriptionId;
+    }
 
-  constructor(uint64 subscriptionId) VRFConsumerBaseV2(vrfCoordinator) {
-    COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
-    s_subscriptionId = subscriptionId;
-  }
+    // Assumes the subscription is funded sufficiently.
+    function requestRandomWords() internal {
+        // Will revert if subscription is not set and funded.
+        s_requestId = COORDINATOR.requestRandomWords(
+            keyHash,
+            s_subscriptionId,
+            requestConfirmations,
+            callbackGasLimit,
+            numWords
+        );
+    }
 
-  // Assumes the subscription is funded sufficiently.
-  function requestRandomWords() internal {
-    // Will revert if subscription is not set and funded.
-    s_requestId = COORDINATOR.requestRandomWords(
-      keyHash,
-      s_subscriptionId,
-      requestConfirmations,
-      callbackGasLimit,
-      numWords
-    );
-  }
-  
-  function fulfillRandomWords(
-    uint256, /* requestId */
-    uint256[] memory randomWords
-  ) internal override {
-    s_randomWords = randomWords;
-  }
-  
+    function fulfillRandomWords(
+        uint256, /* requestId */
+        uint256[] memory randomWords
+    ) internal override {
+        s_randomWords = randomWords;
+    }
 }
 
-
 contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
-    using SafeMath for uint;
-     //NFT category
+    using SafeMath for uint256;
+    //NFT category
     // NFT Description & URL
     bytes data = "";
     uint256 _totalNFTsMinted; //Total NFTs Minted
-    uint8 public constant numOfCopies=1; //A user can mint only 1 NFT in one go
-    uint256 mintFees;       //Mint fee for single random minting
-
-    
+    uint8 public constant numOfCopies = 1; //A user can mint only 1 NFT in one go
+    uint256 mintFees; //Mint fee for single random minting
 
     //Initial Minting
     uint256 Diamond;
     uint256 Gold;
     uint256 Silver;
 
-    uint _maxNFTs;
+    uint256 _maxNFTs;
     //Max mint Slots
-    uint256 maxDiamondCount=33;
-    uint256 maxGoldCount=100;
-    uint256 maxSilverCount=200;
+    uint256 maxDiamondCount = 33;
+    uint256 maxGoldCount = 100;
+    uint256 maxSilverCount = 200;
 
     uint8 _noOfCategories;
 
-    uint256 _maxMints=0;
-    event isMinted(address indexed addr, string[]  ids);
+    uint256 _maxMints = 0;
+    event isMinted(address indexed addr, string[] ids);
+
+    uint _mintStartTime;
+    uint _mintEndTime;
 
     //Struct Category for category details
     struct Category {
         string categoryName;
-        uint categoryNftCount;
+        uint256 categoryNftCount;
         string categoryIpfsHash;
-        uint categoryMintedCount;
-        
+        uint256 categoryMintedCount;
     }
 
-
     Category[] categoriesArray;
-    
+
     //owner-NFT-ID Mapping
     //Won NFTs w.r.t Addresses
     struct nft_Owner {
@@ -116,15 +111,18 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     }
 
     mapping(address => nft_Owner) dropsite_NFT_Owner;
-    
+
     //ID-Category mapping
-    mapping(uint => Category) CategoryDetails;
-    
-    //payments Mapping  
+    mapping(uint256 => Category) CategoryDetails;
+
+    //payments Mapping
     mapping(address => uint256) deposits;
-   
-   //categoryWise no of mints
-   mapping(uint=>uint) categoryMints;
+
+    //categoryWise no of mints
+    mapping(uint256 => uint256) categoryMints;
+
+    //Whitelisted Addresses mapping
+    mapping(address => bool) whitelistedAddresses;
 
     //Pausing and activating the contract
     modifier contractIsNotPaused() {
@@ -143,39 +141,36 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
 
     bool public isPaused = true;
 
-    mapping (uint=>string) tokenURI;
+    mapping(uint256 => string) tokenURI;
     event URI(string value, bytes indexed id);
     event CategoriesSet(Category);
-    event CategoryWiseMints(string, uint);
-    constructor()  ERC1155(""){
+    event CategoryWiseMints(string, uint256);
 
+    constructor() ERC1155("") {
         _totalNFTsMinted = 0; //Total NFTs Minted
         //numOfCopies = 1; //A user can mint only 1 NFT in one call
-        
+
         //Initially 0 Categories & max 0 NFTs can be minted in one go have been minted
-        _noOfCategories=0;
-        _maxNFTs =0;
+        _noOfCategories = 0;
+        _maxNFTs = 0;
     }
 
-    function name() public pure returns(string memory){
-    return "NFT-ES Drop";
-   }
+    function name() public pure returns (string memory) {
+        return "NFT-ES Drop";
+    }
 
-    function symbol() public pure returns(string memory){
+    function symbol() public pure returns (string memory) {
         return "NED";
     }
-  
-   
-    function setURI(uint _id, string memory _uri) private  {
-    tokenURI[_id] = _uri;
-    emit URI(_uri, _id);
-  }
 
-  function uri(uint _id)  override public view returns (string memory) {
-    return tokenURI[_id];
-  }
+    function setURI(uint256 _id, string memory _uri) private {
+        tokenURI[_id] = _uri;
+        emit URI(_uri, _id);
+    }
 
-   
+    function uri(uint256 _id) public view override returns (string memory) {
+        return tokenURI[_id];
+    }
 
     //Check NFTs issued to an address
     function returnNftsOwner(address addr)
@@ -186,53 +181,107 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         return dropsite_NFT_Owner[addr].owned_Dropsite_NFTs;
     }
 
-    //To Check No of issued NFTs Category Wise
-    //Double check this function for gas fees
-    function checkMintedCategoryWise()
-        public
-        onlyOwner
-        {
-            for(uint i=0;i<_noOfCategories;i++){
-                emit CategoryWiseMints(CategoryDetails[i].categoryName, CategoryDetails[i].categoryMintedCount);
-            }
-    }
-
-    function setMaxMints(uint maxMints) public onlyOwner 
-    {
-        require(_maxMints<=5,"Max Mint Set limit is 5");
-        _maxMints=maxMints;
+    function setMaxMints(uint256 maxMints) public onlyOwner contractIsNotPaused{
+        require(_maxMints <= 5, "Max Mint Set limit is 5");
+        _maxMints = maxMints;
     }
 
     //maxNFTs is the total NFTs that can be minted in Dropsite
     //noOfCategories is the number of categories for which the total NFTs will be distributed
-    function setCategoriesAndMaxNFTs(uint8 noOfCategories, uint maxNFTs, string[] memory categoryNames, uint[] memory nftCounts, string[] memory ipfsHashes) public onlyOwner {
-        require((_noOfCategories==0) && (_maxNFTs==0), "Already Set");
+    function setCategoriesAndMaxNFTs(
+        uint8 noOfCategories,
+        uint256 maxNFTs,
+        string[] memory categoryNames,
+        uint256[] memory nftCounts,
+        string[] memory ipfsHashes
+    ) public onlyOwner contractIsNotPaused {
+        require((_noOfCategories == 0) && (_maxNFTs == 0), "Already Set");
         _noOfCategories = noOfCategories;
         _maxNFTs = maxNFTs;
         //Category memory category;
         //categoriesArray= new Category[] (_noOfCategories);
-        
-        for(uint8 i=0;i<_noOfCategories;i++){
+
+        for (uint8 i = 0; i < _noOfCategories; i++) {
             //category = Category(categoryNames[i],nftCounts[i],ipfsHashes[i]);
             CategoryDetails[i].categoryName = categoryNames[i];
             CategoryDetails[i].categoryNftCount = nftCounts[i];
             CategoryDetails[i].categoryIpfsHash = ipfsHashes[i];
             CategoryDetails[i].categoryMintedCount = 0;
             emit CategoriesSet(CategoryDetails[i]);
-            //categoriesArray.push(category);     
+            //categoriesArray.push(category);
         }
     }
-    function setMintFee( uint _mintFee) public onlyOwner{
+
+    function setMintFee(uint256 _mintFee) public onlyOwner contractIsNotPaused{
         mintFees = _mintFee;
     }
-     function setMintStatus(bool mintStatus) public onlyOwner{
-        if(isPaused!=mintStatus)
-        isPaused = mintStatus;
-     }
 
+    function setMintStatus(bool mintStatus) public onlyOwner {
+        if (isPaused != mintStatus) isPaused = mintStatus;
+    }
 
-    function getStatusMintFeeAndMaxMints() public view onlyOwner  returns (bool,uint,uint){
-        return (isPaused,mintFees,_maxMints);
+    function setMintTimer(uint startTime, uint endTime) onlyOwner public onlyOwner contractIsNotPaused{
+        // start time should be near to Block.timestamp
+        require (startTime != endTime , "Error! Start-End Time Error");
+        require(block.timestamp <= endTime, "Error! Timestamp error");
+        _mintStartTime = startTime;
+        _mintEndTime = endTime;
+    }
+
+    //returns start and end time
+    function checkMintTimer() public view contractIsNotPaused returns (uint,uint) {
+        return (_mintStartTime, _mintEndTime);
+    }
+    //Function to check if the timer has been passed or not
+    //true if time has been passed
+    //4-5 Seconds gap has been noticed... SC updates the time first
+    // Should make it internal after DEMO
+    function isAfterMintTime() public view returns (bool){
+        if(block.timestamp >= _mintEndTime) return true;
+        else return false;
+    }
+
+    //function to set whitelisted addresses
+    function addToWhitelist(address[] memory whitelistArr) public onlyOwner contractIsNotPaused {
+        for(uint i=0; i < whitelistArr.length; i++){
+            require(whitelistedAddresses[whitelistArr[i]] == false,"Address has already been added to Whitelist");
+                whitelistedAddresses[whitelistArr[i]] = true;
+        }
+    }
+
+    //function to check whitelist and timer condition
+    //Extra function for testing
+    
+    function checkWhitelistAndTime(address addr) public view returns(bool){
+        if(whitelistedAddresses[addr] == true && (block.timestamp > _mintStartTime && block.timestamp < _mintEndTime))
+            return true;
+        else    
+            return false;
+    }
+
+    //function to remove from whitelist
+    function removeFromWhitelist(address[] memory whitelistArr) public onlyOwner contractIsNotPaused{
+        for(uint i=0; i < whitelistArr.length; i++){
+            require(whitelistedAddresses[whitelistArr[i]] == true, "Please add Address to Whitelist First");
+                whitelistedAddresses[whitelistArr[i]] = false;
+        }
+    }
+
+    //function to check weather an address is whitelisted or not
+    function checkWhitelist(address addr) public view returns(bool) {
+        return whitelistedAddresses[addr];
+    }
+    function getStatusMintFeeAndMaxMints()
+        public
+        view
+        onlyOwner
+        returns (
+            bool,
+            uint256,
+            uint256
+        )
+    {
+        return (isPaused, mintFees, _maxMints);
     }
 
     //To Check total Minted NFTs
@@ -240,9 +289,8 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         return _totalNFTsMinted;
     }
 
-
     //To WithDraw input Ammount from Contract to Owners Address or any other Address
-    function withDraw(address payable to, uint amount) public  onlyOwner {
+    function withDraw(address payable to, uint256 amount) public onlyOwner {
         uint256 Balance = address(this).balance;
         require(amount <= Balance, "Error! Not Enough Balance");
         to.transfer(amount);
@@ -253,11 +301,21 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         return address(this).balance;
     }
 
+    //To Check No of issued NFTs Category Wise
+    //Double check this function for gas fees
+    //Pending Changes
+    function checkMintedCategoryWise() public onlyOwner contractIsNotPaused{
+        for (uint256 i = 0; i < _noOfCategories; i++) {
+            emit CategoryWiseMints(
+                CategoryDetails[i].categoryName,
+                CategoryDetails[i].categoryMintedCount
+            );
+        }
+    }
 
     //Random Number to Select an item from nums Array(Probabilities)
     //Will return an index b/w 0-10
     function random() internal view returns (uint256) {
-        
         //VRF-FUnctions
         // requestRandomWords();
         // return s_randomWords[0];
@@ -268,11 +326,13 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         uint256 randomnumber = uint256(
             keccak256(
                 abi.encodePacked(
-                    ((block.timestamp).add(
-                        _totalNFTsMinted).add(
-                        CategoryDetails[2].categoryMintedCount).add(
-                        CategoryDetails[1].categoryMintedCount).add(
-                        CategoryDetails[0].categoryMintedCount)),
+                    (
+                        (block.timestamp)
+                            .add(_totalNFTsMinted)
+                            .add(CategoryDetails[2].categoryMintedCount)
+                            .add(CategoryDetails[1].categoryMintedCount)
+                            .add(CategoryDetails[0].categoryMintedCount)
+                    ),
                     msg.sender
                 )
             )
@@ -280,65 +340,116 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         return randomnumber;
     }
 
-  
-
-   
     //To check and update conditions wrt nftId
     function updateConditions(uint256 index)
         internal
         contractIsNotPaused
         returns (uint256)
     {
-        uint nftId;
-        if((index).mod(10) == 1 && CategoryDetails[0].categoryMintedCount < CategoryDetails[0].categoryNftCount){
+        uint256 nftId;
+        if (
+            (index).mod(10) == 1 &&
+            CategoryDetails[0].categoryMintedCount <
+            CategoryDetails[0].categoryNftCount
+        ) {
             CategoryDetails[0].categoryMintedCount++;
-            data = bytes(string(
-                abi.encodePacked(CategoryDetails[0].categoryName, Strings.toString(CategoryDetails[0].categoryMintedCount))
-            ));
-            return nftId=0;
+            data = bytes(
+                string(
+                    abi.encodePacked(
+                        CategoryDetails[0].categoryName,
+                        Strings.toString(CategoryDetails[0].categoryMintedCount)
+                    )
+                )
+            );
+            return nftId = 0;
             // if nftID is 0 and Diamond is more than 33, it will go there in Gold Category
-        } else if ((index).mod(10) <= 4 && CategoryDetails[1].categoryMintedCount < CategoryDetails[1].categoryNftCount) {
+        } else if (
+            (index).mod(10) <= 4 &&
+            CategoryDetails[1].categoryMintedCount <
+            CategoryDetails[1].categoryNftCount
+        ) {
             CategoryDetails[0].categoryMintedCount++;
-            data = bytes(string(abi.encodePacked(CategoryDetails[0].categoryName, Strings.toString(CategoryDetails[0].categoryMintedCount))));
-            return nftId=1;
+            data = bytes(
+                string(
+                    abi.encodePacked(
+                        CategoryDetails[0].categoryName,
+                        Strings.toString(CategoryDetails[0].categoryMintedCount)
+                    )
+                )
+            );
+            return nftId = 1;
             // if any of the above conditions are filled it will mint silver if enough silver available
-        } else if ((index).mod(10) > 4 && CategoryDetails[2].categoryMintedCount < CategoryDetails[2].categoryNftCount) {
+        } else if (
+            (index).mod(10) > 4 &&
+            CategoryDetails[2].categoryMintedCount <
+            CategoryDetails[2].categoryNftCount
+        ) {
             CategoryDetails[2].categoryMintedCount++;
-            data = bytes(string(
-                abi.encodePacked(CategoryDetails[2].categoryName, Strings.toString(CategoryDetails[2].categoryMintedCount))
-            ));
-            return nftId=2;
+            data = bytes(
+                string(
+                    abi.encodePacked(
+                        CategoryDetails[2].categoryName,
+                        Strings.toString(CategoryDetails[2].categoryMintedCount)
+                    )
+                )
+            );
+            return nftId = 2;
         } else {
-
             //if nft ID is either 1 or 2, but Slots in Gold or Diamond are remaining,
             //First Gold category will be filled then Diamond
-            if (CategoryDetails[2].categoryMintedCount < CategoryDetails[2].categoryNftCount) {
+            if (
+                CategoryDetails[2].categoryMintedCount <
+                CategoryDetails[2].categoryNftCount
+            ) {
                 nftId = 1;
                 CategoryDetails[2].categoryMintedCount++;
-                data = bytes(string(
-                    abi.encodePacked(CategoryDetails[2].categoryName, Strings.toString(CategoryDetails[2].categoryMintedCount))
-                ));
+                data = bytes(
+                    string(
+                        abi.encodePacked(
+                            CategoryDetails[2].categoryName,
+                            Strings.toString(
+                                CategoryDetails[2].categoryMintedCount
+                            )
+                        )
+                    )
+                );
                 return nftId;
-            }
-
-            else if (CategoryDetails[1].categoryMintedCount < CategoryDetails[1].categoryNftCount) {
+            } else if (
+                CategoryDetails[1].categoryMintedCount <
+                CategoryDetails[1].categoryNftCount
+            ) {
                 nftId = 1;
                 CategoryDetails[1].categoryMintedCount++;
-                data = bytes(string(
-                    abi.encodePacked(CategoryDetails[1].categoryName, Strings.toString(CategoryDetails[1].categoryMintedCount))
-                ));
+                data = bytes(
+                    string(
+                        abi.encodePacked(
+                            CategoryDetails[1].categoryName,
+                            Strings.toString(
+                                CategoryDetails[1].categoryMintedCount
+                            )
+                        )
+                    )
+                );
                 return nftId;
-            }  else if (CategoryDetails[0].categoryMintedCount < CategoryDetails[0].categoryNftCount){
+            } else if (
+                CategoryDetails[0].categoryMintedCount <
+                CategoryDetails[0].categoryNftCount
+            ) {
                 nftId = 0;
                 CategoryDetails[0].categoryMintedCount++;
-                data = bytes(string(
-                    abi.encodePacked(CategoryDetails[0].categoryName, Strings.toString(CategoryDetails[0].categoryMintedCount))
-                ));
+                data = bytes(
+                    string(
+                        abi.encodePacked(
+                            CategoryDetails[0].categoryName,
+                            Strings.toString(
+                                CategoryDetails[0].categoryMintedCount
+                            )
+                        )
+                    )
+                );
                 return nftId;
-            }
-            else return 99;
+            } else return 99;
         }
-        
     }
 
     function randomMinting(address user_addr)
@@ -352,14 +463,22 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         _mint(user_addr, nftId, numOfCopies, data);
         _totalNFTsMinted++;
         dropsite_NFT_Owner[user_addr].owned_Dropsite_NFTs.push(nftId);
-        if(bytes(tokenURI[nftId]).length==0)
-        {
-        if(nftId==0)
-            setURI(nftId, "ipfs://QmNce9BpYehVxaYUnSmpXNf2p2vS1ehmV7J7DsACwWfcM3/DiamondMetadata.json");
-        else if(nftId==1)
-            setURI(nftId, "ipfs://QmNce9BpYehVxaYUnSmpXNf2p2vS1ehmV7J7DsACwWfcM3/GoldMetadata.json");
-        else if(nftId==2)
-            setURI(nftId, "ipfs://QmNce9BpYehVxaYUnSmpXNf2p2vS1ehmV7J7DsACwWfcM3/SilverMetadata.json");
+        if (bytes(tokenURI[nftId]).length == 0) {
+            if (nftId == 0)
+                setURI(
+                    nftId,
+                    "ipfs://QmNce9BpYehVxaYUnSmpXNf2p2vS1ehmV7J7DsACwWfcM3/DiamondMetadata.json"
+                );
+            else if (nftId == 1)
+                setURI(
+                    nftId,
+                    "ipfs://QmNce9BpYehVxaYUnSmpXNf2p2vS1ehmV7J7DsACwWfcM3/GoldMetadata.json"
+                );
+            else if (nftId == 2)
+                setURI(
+                    nftId,
+                    "ipfs://QmNce9BpYehVxaYUnSmpXNf2p2vS1ehmV7J7DsACwWfcM3/SilverMetadata.json"
+                );
         }
         return (nftId, data);
     }
@@ -380,10 +499,10 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     //     string[] memory randomMintedNfts = new string[](noOfMints);
     //     for (uint256 i = 0; i <= noOfMints-1; i++) {
     //         (returnedNftID, returnedNftData) = randomMinting(user_addr);
-    //           randomMintedNfts[i]= 
+    //           randomMintedNfts[i]=
     //                 string(abi.encodePacked(Strings.toString(returnedNftID),"_", returnedNftData));
     //     }
-        
+
     //     emit isMinted(user_addr, randomMintedNfts);
     //     return randomMintedNfts;
     // }
@@ -402,20 +521,33 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         maxMintingIsSet
         returns (string[] memory)
     {
-        require(noOfMints <= _maxMints && noOfMints>0, "You cannot mint more than max mint limit");
-        require((_totalNFTsMinted+noOfMints) <= _maxNFTs, "Max Minting Limit reached");
+        require(
+            noOfMints <= _maxMints && noOfMints > 0,
+            "You cannot mint more than max mint limit"
+        );
+        require(
+            (_totalNFTsMinted + noOfMints) <= _maxNFTs,
+            "Max Minting Limit reached"
+        );
         require(msg.value == mintFees.mul(noOfMints), "Not Enough Balance");
-        uint returnedNftID;
+        if(_mintEndTime > block.timestamp)
+            require(checkWhitelist(user_addr) , "Not in the Whitelist or Timer Error");
+        //else if time has ended or user_addr is in the whitelist
+        uint256 returnedNftID;
         bytes memory returnedNftData;
         string[] memory randomMintedNfts = new string[](noOfMints);
-        for (uint256 i = 0; i <= noOfMints-1; i++) {
-          (returnedNftID, returnedNftData) = randomMinting(user_addr);
-              randomMintedNfts[i]= 
-                    string(abi.encodePacked(Strings.toString(returnedNftID),"_", returnedNftData));
+        for (uint256 i = 0; i <= noOfMints - 1; i++) {
+            (returnedNftID, returnedNftData) = randomMinting(user_addr);
+            randomMintedNfts[i] = string(
+                abi.encodePacked(
+                    Strings.toString(returnedNftID),
+                    "_",
+                    returnedNftData
+                )
+            );
         }
         depositAmount(_msgSender(), msg.value);
         emit isMinted(user_addr, randomMintedNfts);
         return randomMintedNfts;
     }
-
 }
