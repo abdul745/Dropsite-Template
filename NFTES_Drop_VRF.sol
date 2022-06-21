@@ -73,24 +73,17 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     bytes data = "";
     uint256 _totalNFTsMinted; //Total NFTs Minted
     uint8 public constant numOfCopies = 1; //A user can mint only 1 NFT in one go
-    uint256 mintFees; //Mint fee for single random minting
-
-    //Initial Minting
-    uint256 Diamond;
-    uint256 Gold;
-    uint256 Silver;
+    uint256 _mintFees; //Mint fee for single random minting
 
     uint256 _maxNFTs;
-    //Max mint Slots
-    uint256 maxDiamondCount = 33;
-    uint256 maxGoldCount = 100;
-    uint256 maxSilverCount = 200;
-
     uint8 _noOfCategories;
+    uint8 _maxNFTsPerWallet;
 
+    //Max mints in one go
     uint256 _maxMints = 0;
-    event isMinted(address indexed addr, string[] ids);
+    event isMinted(address indexed addr, uint[] ids);
 
+    //Mint Start and end Time - UNIX Timestamp
     uint _mintStartTime;
     uint _mintEndTime;
 
@@ -101,8 +94,6 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         string categoryIpfsHash;
         uint256 categoryMintedCount;
     }
-
-    Category[] categoriesArray;
 
     //owner-NFT-ID Mapping
     //Won NFTs w.r.t Addresses
@@ -124,13 +115,16 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     //Whitelisted Addresses mapping
     mapping(address => bool) whitelistedAddresses;
 
+    //Total no of NFTs per wallet mapping
+    mapping(address => uint) NFTsPerWallet;
+
     //Pausing and activating the contract
     modifier contractIsNotPaused() {
         require(isPaused == false, "Dropsite is not Opened Yet.");
         _;
     }
     modifier mintingFeeIsSet() {
-        require(mintFees != 0, "Owner Should set mint Fee First");
+        require(_mintFees != 0, "Owner Should set mint Fee First");
         _;
     }
 
@@ -139,12 +133,15 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         _;
     }
 
+    modifier categoriesAreSet() {
+        require(_noOfCategories!=0 && _maxNFTs!=0, "Please set Categories and Max NFTs first");
+        _;
+    }
     bool public isPaused = true;
 
     mapping(uint256 => string) tokenURI;
     event URI(string value, bytes indexed id);
     event CategoriesSet(Category);
-    event CategoryWiseMints(string, uint256);
 
     constructor() ERC1155("") {
         _totalNFTsMinted = 0; //Total NFTs Minted
@@ -156,11 +153,11 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     }
 
     function name() public pure returns (string memory) {
-        return "NFT-ES Drop";
+        return "Dropsite";
     }
 
     function symbol() public pure returns (string memory) {
-        return "NED";
+        return "DST";
     }
 
     function setURI(uint256 _id, string memory _uri) private {
@@ -213,7 +210,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     }
 
     function setMintFee(uint256 _mintFee) public onlyOwner contractIsNotPaused{
-        mintFees = _mintFee;
+        _mintFees = _mintFee;
     }
 
     function setMintStatus(bool mintStatus) public onlyOwner {
@@ -226,6 +223,10 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         require(block.timestamp <= endTime, "Error! Timestamp error");
         _mintStartTime = startTime;
         _mintEndTime = endTime;
+    }
+
+    function setMaxNFTsPerWallet(uint8 maxNFTsCount) public onlyOwner contractIsNotPaused {
+        _maxNFTsPerWallet = maxNFTsCount;
     }
 
     //returns start and end time
@@ -247,16 +248,6 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
             require(whitelistedAddresses[whitelistArr[i]] == false,"Address has already been added to Whitelist");
                 whitelistedAddresses[whitelistArr[i]] = true;
         }
-    }
-
-    //function to check whitelist and timer condition
-    //Extra function for testing
-    
-    function checkWhitelistAndTime(address addr) public view returns(bool){
-        if(whitelistedAddresses[addr] == true && (block.timestamp > _mintStartTime && block.timestamp < _mintEndTime))
-            return true;
-        else    
-            return false;
     }
 
     //function to remove from whitelist
@@ -281,7 +272,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
             uint256
         )
     {
-        return (isPaused, mintFees, _maxMints);
+        return (isPaused, _mintFees, _maxMints);
     }
 
     //To Check total Minted NFTs
@@ -304,9 +295,9 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     //To Check No of issued NFTs Category Wise
     //Double check this function for gas fees
     //Pending Changes
-    function checkMintedCategoryWise() public onlyOwner contractIsNotPaused{
+    function checkMintedCategoryWise() public onlyOwner contractIsNotPaused returns(string memory,uint){
         for (uint256 i = 0; i < _noOfCategories; i++) {
-            emit CategoryWiseMints(
+            return(
                 CategoryDetails[i].categoryName,
                 CategoryDetails[i].categoryMintedCount
             );
@@ -354,29 +345,13 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         ) {
             CategoryDetails[0].categoryMintedCount++;
             data = bytes(
-                string(
-                    abi.encodePacked(
-                        CategoryDetails[0].categoryName,
-                        Strings.toString(CategoryDetails[0].categoryMintedCount)
-                    )
-                )
-            );
+                string(CategoryDetails[0].categoryName));
             return nftId = 0;
             // if nftID is 0 and Diamond is more than 33, it will go there in Gold Category
         } else if (
-            (index).mod(10) <= 4 &&
-            CategoryDetails[1].categoryMintedCount <
-            CategoryDetails[1].categoryNftCount
-        ) {
-            CategoryDetails[0].categoryMintedCount++;
-            data = bytes(
-                string(
-                    abi.encodePacked(
-                        CategoryDetails[0].categoryName,
-                        Strings.toString(CategoryDetails[0].categoryMintedCount)
-                    )
-                )
-            );
+            (index).mod(10) <= 4 && CategoryDetails[1].categoryMintedCount < CategoryDetails[1].categoryNftCount) {
+            CategoryDetails[1].categoryMintedCount++;
+            data = bytes(string(CategoryDetails[1].categoryName));
             return nftId = 1;
             // if any of the above conditions are filled it will mint silver if enough silver available
         } else if (
@@ -385,14 +360,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
             CategoryDetails[2].categoryNftCount
         ) {
             CategoryDetails[2].categoryMintedCount++;
-            data = bytes(
-                string(
-                    abi.encodePacked(
-                        CategoryDetails[2].categoryName,
-                        Strings.toString(CategoryDetails[2].categoryMintedCount)
-                    )
-                )
-            );
+            data = bytes(string(CategoryDetails[2].categoryName));
             return nftId = 2;
         } else {
             //if nft ID is either 1 or 2, but Slots in Gold or Diamond are remaining,
@@ -402,17 +370,8 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
                 CategoryDetails[2].categoryNftCount
             ) {
                 nftId = 1;
-                CategoryDetails[2].categoryMintedCount++;
-                data = bytes(
-                    string(
-                        abi.encodePacked(
-                            CategoryDetails[2].categoryName,
-                            Strings.toString(
-                                CategoryDetails[2].categoryMintedCount
-                            )
-                        )
-                    )
-                );
+                CategoryDetails[1].categoryMintedCount++;
+                 data = bytes(string(CategoryDetails[2].categoryName));
                 return nftId;
             } else if (
                 CategoryDetails[1].categoryMintedCount <
@@ -420,16 +379,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
             ) {
                 nftId = 1;
                 CategoryDetails[1].categoryMintedCount++;
-                data = bytes(
-                    string(
-                        abi.encodePacked(
-                            CategoryDetails[1].categoryName,
-                            Strings.toString(
-                                CategoryDetails[1].categoryMintedCount
-                            )
-                        )
-                    )
-                );
+                data = bytes(string(CategoryDetails[1].categoryName));
                 return nftId;
             } else if (
                 CategoryDetails[0].categoryMintedCount <
@@ -437,16 +387,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
             ) {
                 nftId = 0;
                 CategoryDetails[0].categoryMintedCount++;
-                data = bytes(
-                    string(
-                        abi.encodePacked(
-                            CategoryDetails[0].categoryName,
-                            Strings.toString(
-                                CategoryDetails[0].categoryMintedCount
-                            )
-                        )
-                    )
-                );
+            data = bytes(string(CategoryDetails[0].categoryName));
                 return nftId;
             } else return 99;
         }
@@ -455,7 +396,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     function randomMinting(address user_addr)
         internal
         contractIsNotPaused
-        returns (uint256, bytes memory)
+        returns (uint256)
     {
         // nftId = random(); // we're assuming that random() returns only 0,1,2
         uint256 index = random();
@@ -480,32 +421,9 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
                     "ipfs://QmNce9BpYehVxaYUnSmpXNf2p2vS1ehmV7J7DsACwWfcM3/SilverMetadata.json"
                 );
         }
-        return (nftId, data);
+        return (nftId);
     }
 
-    //Random minting after Fiat Payments
-    // function fiatRandomMint(address user_addr, uint256 noOfMints)
-    //     public
-    //     onlyOwner
-    //     contractIsNotPaused
-    //     mintingFeeIsSet
-    //     maxMintingIsSet
-    //     returns (string[] memory)
-    // {
-    //     require(noOfMints <= _maxMints && noOfMints>0, "You cannot mint more than max mint limit");
-    //     require((_totalNFTsMinted+noOfMints) <= _maxNFTs, "Max Minting Limit reached");
-    //     uint returnedNftID;
-    //     bytes memory returnedNftData;
-    //     string[] memory randomMintedNfts = new string[](noOfMints);
-    //     for (uint256 i = 0; i <= noOfMints-1; i++) {
-    //         (returnedNftID, returnedNftData) = randomMinting(user_addr);
-    //           randomMintedNfts[i]=
-    //                 string(abi.encodePacked(Strings.toString(returnedNftID),"_", returnedNftData));
-    //     }
-
-    //     emit isMinted(user_addr, randomMintedNfts);
-    //     return randomMintedNfts;
-    // }
 
     //MATIC Amount will be deposited
     function depositAmount(address payee, uint256 amountToDeposit) internal {
@@ -517,9 +435,10 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         public
         payable
         contractIsNotPaused
+        categoriesAreSet
         mintingFeeIsSet
         maxMintingIsSet
-        returns (string[] memory)
+        returns (uint[] memory)
     {
         require(
             noOfMints <= _maxMints && noOfMints > 0,
@@ -529,24 +448,20 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
             (_totalNFTsMinted + noOfMints) <= _maxNFTs,
             "Max Minting Limit reached"
         );
-        require(msg.value == mintFees.mul(noOfMints), "Not Enough Balance");
+        require(msg.value == _mintFees.mul(noOfMints), "Not Enough Balance");
+        require(NFTsPerWallet[user_addr] < _maxNFTsPerWallet, "This wallet has reached Maximum Mint Limit");
+
         if(_mintEndTime > block.timestamp)
             require(checkWhitelist(user_addr) , "Not in the Whitelist or Timer Error");
         //else if time has ended or user_addr is in the whitelist
         uint256 returnedNftID;
-        bytes memory returnedNftData;
-        string[] memory randomMintedNfts = new string[](noOfMints);
+        uint[] memory randomMintedNfts = new uint[](noOfMints);
         for (uint256 i = 0; i <= noOfMints - 1; i++) {
-            (returnedNftID, returnedNftData) = randomMinting(user_addr);
-            randomMintedNfts[i] = string(
-                abi.encodePacked(
-                    Strings.toString(returnedNftID),
-                    "_",
-                    returnedNftData
-                )
-            );
+            returnedNftID = randomMinting(user_addr);
+            randomMintedNfts[i] = returnedNftID;
         }
         depositAmount(_msgSender(), msg.value);
+        NFTsPerWallet[user_addr]++;
         emit isMinted(user_addr, randomMintedNfts);
         return randomMintedNfts;
     }
