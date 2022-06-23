@@ -81,11 +81,11 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
 
     //Max mints in one go
     uint256 _maxMints = 0;
-    event isMinted(address indexed addr, uint[] ids);
+    event isMinted(address indexed addr, uint256[] ids);
 
     //Mint Start and end Time - UNIX Timestamp
-    uint _mintStartTime;
-    uint _mintEndTime;
+    uint256 _mintStartTime;
+    uint256 _mintEndTime;
 
     //Struct Category for category details
     struct Category {
@@ -110,13 +110,13 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     mapping(address => uint256) deposits;
 
     //categoryWise no of mints
-    mapping(uint256 => uint256) categoryMints;
+    // mapping(uint256 => uint256) categoryMints;
 
     //Whitelisted Addresses mapping
     mapping(address => bool) whitelistedAddresses;
 
     //Total no of NFTs per wallet mapping
-    mapping(address => uint) NFTsPerWallet;
+    mapping(address => uint256) NFTsPerWallet;
 
     //Pausing and activating the contract
     modifier contractIsNotPaused() {
@@ -134,7 +134,10 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     }
 
     modifier categoriesAreSet() {
-        require(_noOfCategories!=0 && _maxNFTs!=0, "Please set Categories and Max NFTs first");
+        require(
+            _noOfCategories != 0 && _maxNFTs != 0,
+            "Please set Categories and Max NFTs first"
+        );
         _;
     }
     bool public isPaused = true;
@@ -178,7 +181,11 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         return dropsite_NFT_Owner[addr].owned_Dropsite_NFTs;
     }
 
-    function setMaxMints(uint256 maxMints) public onlyOwner contractIsNotPaused{
+    function setMaxMints(uint256 maxMints)
+        public
+        onlyOwner
+        contractIsNotPaused
+    {
         require(_maxMints <= 5, "Max Mint Set limit is 5");
         _maxMints = maxMints;
     }
@@ -204,64 +211,85 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
             CategoryDetails[i].categoryNftCount = nftCounts[i];
             CategoryDetails[i].categoryIpfsHash = ipfsHashes[i];
             CategoryDetails[i].categoryMintedCount = 0;
+            setURI(i, ipfsHashes[i]);
             emit CategoriesSet(CategoryDetails[i]);
             //categoriesArray.push(category);
         }
     }
 
-    function setMintFee(uint256 _mintFee) public onlyOwner contractIsNotPaused{
-        _mintFees = _mintFee;
+    function setMintFee(uint256 mintFee) public onlyOwner contractIsNotPaused {
+        _mintFees = mintFee;
     }
 
     function setMintStatus(bool mintStatus) public onlyOwner {
         if (isPaused != mintStatus) isPaused = mintStatus;
     }
 
-    function setMintTimer(uint startTime, uint endTime) onlyOwner public onlyOwner contractIsNotPaused{
+    function setMintTimer(uint256 startTime, uint256 endTime)
+        public
+        onlyOwner
+        contractIsNotPaused
+    {
         // start time should be near to Block.timestamp
-        require (startTime != endTime , "Error! Start-End Time Error");
+        require(startTime != endTime, "Error! Start-End Time Error");
         require(block.timestamp <= endTime, "Error! Timestamp error");
         _mintStartTime = startTime;
         _mintEndTime = endTime;
     }
 
-    function setMaxNFTsPerWallet(uint8 maxNFTsCount) public onlyOwner contractIsNotPaused {
+    function setMaxNFTsPerWallet(uint8 maxNFTsCount)
+        public
+        onlyOwner
+        contractIsNotPaused
+    {
         _maxNFTsPerWallet = maxNFTsCount;
     }
 
     //returns start and end time
-    function checkMintTimer() public view contractIsNotPaused returns (uint,uint) {
+    function checkMintTimer() public view returns (uint256, uint256) {
         return (_mintStartTime, _mintEndTime);
     }
+
     //Function to check if the timer has been passed or not
     //true if time has been passed
     //4-5 Seconds gap has been noticed... SC updates the time first
     // Should make it internal after DEMO
-    function isAfterMintTime() public view returns (bool){
-        if(block.timestamp >= _mintEndTime) return true;
-        else return false;
-    }
+    //Unused FUnction
+    // function isAfterMintTime() public view returns (bool){
+    //     if(block.timestamp >= _mintEndTime) return true;
+    //     else return false;
+    // }
 
     //function to set whitelisted addresses
-    function addToWhitelist(address[] memory whitelistArr) public onlyOwner contractIsNotPaused {
-        for(uint i=0; i < whitelistArr.length; i++){
-            require(whitelistedAddresses[whitelistArr[i]] == false,"Address has already been added to Whitelist");
-                whitelistedAddresses[whitelistArr[i]] = true;
+    function addToWhitelist(address[] memory whitelistArr) public onlyOwner {
+        for (uint256 i = 0; i < whitelistArr.length; i++) {
+            require(
+                whitelistedAddresses[whitelistArr[i]] == false,
+                "Address has already been added to Whitelist"
+            );
+            whitelistedAddresses[whitelistArr[i]] = true;
         }
     }
 
     //function to remove from whitelist
-    function removeFromWhitelist(address[] memory whitelistArr) public onlyOwner contractIsNotPaused{
-        for(uint i=0; i < whitelistArr.length; i++){
-            require(whitelistedAddresses[whitelistArr[i]] == true, "Please add Address to Whitelist First");
-                whitelistedAddresses[whitelistArr[i]] = false;
+    function removeFromWhitelist(address[] memory whitelistArr)
+        public
+        onlyOwner
+    {
+        for (uint256 i = 0; i < whitelistArr.length; i++) {
+            require(
+                whitelistedAddresses[whitelistArr[i]] == true,
+                "Please add Address to Whitelist First"
+            );
+            whitelistedAddresses[whitelistArr[i]] = false;
         }
     }
 
     //function to check weather an address is whitelisted or not
-    function checkWhitelist(address addr) public view returns(bool) {
+    function checkWhitelist(address addr) public view returns (bool) {
         return whitelistedAddresses[addr];
     }
+
     function getStatusMintFeeAndMaxMints()
         public
         view
@@ -295,13 +323,19 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     //To Check No of issued NFTs Category Wise
     //Double check this function for gas fees
     //Pending Changes
-    function checkMintedCategoryWise() public onlyOwner contractIsNotPaused returns(string memory,uint){
+    function checkMintedCategoryWise()
+        public
+        view
+        onlyOwner
+        returns (string[] memory, uint256[] memory)
+    {
+        string[] memory categoryNamesArr;
+        uint256[] memory categoryCountsArr;
         for (uint256 i = 0; i < _noOfCategories; i++) {
-            return(
-                CategoryDetails[i].categoryName,
-                CategoryDetails[i].categoryMintedCount
-            );
+            categoryNamesArr[i] = CategoryDetails[i].categoryName;
+            categoryCountsArr[i] = CategoryDetails[i].categoryMintedCount;
         }
+        return (categoryNamesArr, categoryCountsArr);
     }
 
     //Random Number to Select an item from nums Array(Probabilities)
@@ -332,11 +366,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     }
 
     //To check and update conditions wrt nftId
-    function updateConditions(uint256 index)
-        internal
-        contractIsNotPaused
-        returns (uint256)
-    {
+    function updateConditions(uint256 index) internal returns (uint256) {
         uint256 nftId;
         if (
             (index).mod(10) == 1 &&
@@ -344,12 +374,14 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
             CategoryDetails[0].categoryNftCount
         ) {
             CategoryDetails[0].categoryMintedCount++;
-            data = bytes(
-                string(CategoryDetails[0].categoryName));
+            data = bytes(string(CategoryDetails[0].categoryName));
             return nftId = 0;
             // if nftID is 0 and Diamond is more than 33, it will go there in Gold Category
         } else if (
-            (index).mod(10) <= 4 && CategoryDetails[1].categoryMintedCount < CategoryDetails[1].categoryNftCount) {
+            (index).mod(10) <= 4 &&
+            CategoryDetails[1].categoryMintedCount <
+            CategoryDetails[1].categoryNftCount
+        ) {
             CategoryDetails[1].categoryMintedCount++;
             data = bytes(string(CategoryDetails[1].categoryName));
             return nftId = 1;
@@ -371,7 +403,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
             ) {
                 nftId = 1;
                 CategoryDetails[1].categoryMintedCount++;
-                 data = bytes(string(CategoryDetails[2].categoryName));
+                data = bytes(string(CategoryDetails[2].categoryName));
                 return nftId;
             } else if (
                 CategoryDetails[1].categoryMintedCount <
@@ -387,43 +419,21 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
             ) {
                 nftId = 0;
                 CategoryDetails[0].categoryMintedCount++;
-            data = bytes(string(CategoryDetails[0].categoryName));
+                data = bytes(string(CategoryDetails[0].categoryName));
                 return nftId;
             } else return 99;
         }
     }
 
-    function randomMinting(address user_addr)
-        internal
-        contractIsNotPaused
-        returns (uint256)
-    {
+    function randomMinting(address user_addr) internal returns (uint256) {
         // nftId = random(); // we're assuming that random() returns only 0,1,2
         uint256 index = random();
         uint256 nftId = updateConditions(index);
         _mint(user_addr, nftId, numOfCopies, data);
         _totalNFTsMinted++;
         dropsite_NFT_Owner[user_addr].owned_Dropsite_NFTs.push(nftId);
-        if (bytes(tokenURI[nftId]).length == 0) {
-            if (nftId == 0)
-                setURI(
-                    nftId,
-                    "ipfs://QmNce9BpYehVxaYUnSmpXNf2p2vS1ehmV7J7DsACwWfcM3/DiamondMetadata.json"
-                );
-            else if (nftId == 1)
-                setURI(
-                    nftId,
-                    "ipfs://QmNce9BpYehVxaYUnSmpXNf2p2vS1ehmV7J7DsACwWfcM3/GoldMetadata.json"
-                );
-            else if (nftId == 2)
-                setURI(
-                    nftId,
-                    "ipfs://QmNce9BpYehVxaYUnSmpXNf2p2vS1ehmV7J7DsACwWfcM3/SilverMetadata.json"
-                );
-        }
         return (nftId);
     }
-
 
     //MATIC Amount will be deposited
     function depositAmount(address payee, uint256 amountToDeposit) internal {
@@ -438,7 +448,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         categoriesAreSet
         mintingFeeIsSet
         maxMintingIsSet
-        returns (uint[] memory)
+        returns (uint256[] memory)
     {
         require(
             noOfMints <= _maxMints && noOfMints > 0,
@@ -449,13 +459,19 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
             "Max Minting Limit reached"
         );
         require(msg.value == _mintFees.mul(noOfMints), "Not Enough Balance");
-        require(NFTsPerWallet[user_addr] < _maxNFTsPerWallet, "This wallet has reached Maximum Mint Limit");
+        require(
+            NFTsPerWallet[user_addr] < _maxNFTsPerWallet,
+            "This wallet has reached Maximum Mint Limit"
+        );
 
-        if(_mintEndTime > block.timestamp)
-            require(checkWhitelist(user_addr) , "Not in the Whitelist or Timer Error");
+        if (_mintEndTime > block.timestamp)
+            require(
+                checkWhitelist(user_addr),
+                "Not in the Whitelist or Timer Error"
+            );
         //else if time has ended or user_addr is in the whitelist
         uint256 returnedNftID;
-        uint[] memory randomMintedNfts = new uint[](noOfMints);
+        uint256[] memory randomMintedNfts = new uint256[](noOfMints);
         for (uint256 i = 0; i <= noOfMints - 1; i++) {
             returnedNftID = randomMinting(user_addr);
             randomMintedNfts[i] = returnedNftID;
