@@ -373,78 +373,56 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     }
 
     //To check and update conditions wrt nftId
-    event checkRandomNo(uint);
     function updateConditions(uint256 index) internal returns (uint256) {
         uint256 nftId;
         uint rnd = (index).mod(sumOfWeights);
+        
         for(uint8 i=0; i<_noOfCategories; i++) {
              if(rnd < weightsArray[i]){
-                data = bytes(string(CategoryDetails[i].categoryName));
-                nftId = i;
-                emit checkRandomNo(nftId);
-                CategoryDetails[i].categoryMintedCount++;
-                break;
+                bool flag = slotAvailable(i);
+                    if(flag){
+                        data = bytes(string(CategoryDetails[i].categoryName));
+                        nftId = i;
+                        CategoryDetails[i].categoryMintedCount++;
+                        break;
+                    }
+                    else{
+                        // 2nd last full slot
+                    while(!flag && i < (_noOfCategories-1)){
+                        i = i+1;
+                        flag = slotAvailable(i);
+                        if(flag){
+                                data = bytes(string(CategoryDetails[i].categoryName));
+                                nftId = i;
+                                CategoryDetails[i].categoryMintedCount++;
+                                break;
+                            }
+                    }
+                        //last full slot
+                    while(!flag && i <= (_noOfCategories-1) && i>0){
+                        i = i-1;
+                        flag = slotAvailable(i);
+                        if(flag){
+                                data = bytes(string(CategoryDetails[i].categoryName));
+                                nftId = i;
+                                CategoryDetails[i].categoryMintedCount++;
+                                break;
+                            }
+                    }
+
+                }
              }
              else
                 rnd -= weightsArray[i];
             }
+            
             return nftId;
-
-        // if (
-        //     (index).mod(10) == 1 &&
-        //     CategoryDetails[0].categoryMintedCount <
-        //     CategoryDetails[0].categoryNftCount
-        // ) {
-        //     CategoryDetails[0].categoryMintedCount++;
-        //     data = bytes(string(CategoryDetails[0].categoryName));
-        //     return nftId = 0;
-        //     // if nftID is 0 and Diamond is more than 33, it will go there in Gold Category
-        // } else if (
-        //     (index).mod(10) <= 4 &&
-        //     CategoryDetails[1].categoryMintedCount <
-        //     CategoryDetails[1].categoryNftCount
-        // ) {
-        //     CategoryDetails[1].categoryMintedCount++;
-        //     data = bytes(string(CategoryDetails[1].categoryName));
-        //     return nftId = 1;
-        //     // if any of the above conditions are filled it will mint silver if enough silver available
-        // } else if (
-        //     (index).mod(10) > 4 &&
-        //     CategoryDetails[2].categoryMintedCount <
-        //     CategoryDetails[2].categoryNftCount
-        // ) {
-        //     CategoryDetails[2].categoryMintedCount++;
-        //     data = bytes(string(CategoryDetails[2].categoryName));
-        //     return nftId = 2;
-        // } else {
-        //     //if nft ID is either 1 or 2, but Slots in Gold or Diamond are remaining,
-        //     //First Gold category will be filled then Diamond
-        //     if (
-        //         CategoryDetails[2].categoryMintedCount <
-        //         CategoryDetails[2].categoryNftCount
-        //     ) {
-        //         nftId = 1;
-        //         CategoryDetails[1].categoryMintedCount++;
-        //         data = bytes(string(CategoryDetails[2].categoryName));
-        //         return nftId;
-        //     } else if (
-        //         CategoryDetails[1].categoryMintedCount <
-        //         CategoryDetails[1].categoryNftCount
-        //     ) {
-        //         nftId = 1;
-        //         CategoryDetails[1].categoryMintedCount++;
-        //         data = bytes(string(CategoryDetails[1].categoryName));
-        //         return nftId;
-        //     } else if (
-        //         CategoryDetails[0].categoryMintedCount <
-        //         CategoryDetails[0].categoryNftCount
-        //     ) {
-        //         nftId = 0;
-        //         CategoryDetails[0].categoryMintedCount++;
-        //         data = bytes(string(CategoryDetails[0].categoryName));
-        //         return nftId;
-        //     } else return 99;
-        // }
+    }
+    function slotAvailable(uint nftId) internal view returns (bool){
+        if(CategoryDetails[nftId].categoryMintedCount<CategoryDetails[nftId].categoryNftCount)
+            return true;
+        else
+            return false;
     }
 
     function randomMinting(address user_addr) internal returns (uint256) {
