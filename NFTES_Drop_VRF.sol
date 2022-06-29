@@ -71,43 +71,43 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     //NFT category
     // NFT Description & URL
     bytes data = "";
-    uint256 _totalNFTsMinted; //Total NFTs Minted
+    uint16 _totalNFTsMinted; //Total NFTs Minted
     uint8 public constant numOfCopies = 1; //A user can mint only 1 NFT in one go
     uint256 _mintFees; //Mint fee for single random minting
 
-    uint256 _maxNFTs;
+    uint16 _maxNFTs;
     uint8 _noOfCategories;
     uint8 _maxNFTsPerWallet;
 
     //Max mints in one go
-    uint256 _maxMints = 0;
+    uint8 _maxMints = 0;
     event isMinted(address indexed addr, uint256[] ids);
 
     //Mint Start and end Time - UNIX Timestamp
-    uint256 _mintStartTime;
-    uint256 _mintEndTime;
+    uint32 _mintStartTime;
+    uint32 _mintEndTime;
 
     //Sum of weights for all NFTs for all categories: Must be 100;
-    uint256 sumOfWeights=0;
-    uint256[] weightsArray;
+    uint64 sumOfWeights=0;
+    uint64[] weightsArray;
     //Struct Category for category details
     struct Category {
         string categoryName;
-        uint256 categoryNftCount;
+        uint16 categoryNftCount;
         string categoryIpfsHash;
-        uint256 categoryMintedCount;
+        uint16 categoryMintedCount;
     }
 
     //owner-NFT-ID Mapping
     //Won NFTs w.r.t Addresses
     struct nft_Owner {
-        uint256[] owned_Dropsite_NFTs;
+        uint16[] owned_Dropsite_NFTs;
     }
 
     mapping(address => nft_Owner) dropsite_NFT_Owner;
 
     //ID-Category mapping
-    mapping(uint256 => Category) CategoryDetails;
+    mapping(uint16 => Category) CategoryDetails;
 
     //payments Mapping
     mapping(address => uint256) deposits;
@@ -119,7 +119,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     mapping(address => bool) whitelistedAddresses;
 
     //Total no of NFTs per wallet mapping
-    mapping(address => uint256) NFTsPerWallet;
+    mapping(address => uint8) NFTsPerWallet;
 
     //Pausing and activating the contract
     modifier contractIsNotPaused() {
@@ -179,12 +179,12 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     function returnNftsOwner(address addr)
         public
         view
-        returns (uint256[] memory)
+        returns (uint16[] memory)
     {
         return dropsite_NFT_Owner[addr].owned_Dropsite_NFTs;
     }
 
-    function setMaxMints(uint256 maxMints)
+    function setMaxMints(uint8 maxMints)
         public
         onlyOwner
         contractIsNotPaused
@@ -197,9 +197,9 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     //noOfCategories is the number of categories for which the total NFTs will be distributed
     function setCategoriesAndMaxNFTs(
         uint8 noOfCategories,
-        uint256 maxNFTs,
+        uint16 maxNFTs,
         string[] memory categoryNames,
-        uint256[] memory nftCounts,
+        uint16[] memory nftCounts,
         string[] memory ipfsHashes
     ) public onlyOwner contractIsNotPaused {
         require((_noOfCategories == 0) && (_maxNFTs == 0), "Already Set");
@@ -207,7 +207,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         _maxNFTs = maxNFTs;
         //Category memory category;
         //categoriesArray= new Category[] (_noOfCategories);
-        weightsArray = new uint256[](_noOfCategories);
+        weightsArray = new uint64[](_noOfCategories);
         for (uint8 i = 0; i < _noOfCategories; i++) {
             //category = Category(categoryNames[i],nftCounts[i],ipfsHashes[i]);
             CategoryDetails[i].categoryName = categoryNames[i];
@@ -233,7 +233,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         if (isPaused != mintStatus) isPaused = mintStatus;
     }
 
-    function setMintTimer(uint256 startTime, uint256 endTime)
+    function setMintTimer(uint32 startTime, uint32 endTime)
         public
         onlyOwner
         contractIsNotPaused
@@ -250,6 +250,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         onlyOwner
         contractIsNotPaused
     {
+        require(maxNFTsCount<=_maxMints, "Max NFTs per wallet should be less than or equal to max Mint Limit");
         _maxNFTsPerWallet = maxNFTsCount;
     }
 
@@ -339,8 +340,10 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     {
         //string[] memory categoryNamesArr = new string[](_noOfCategories);
         uint256[] memory categoryCountsArr = new uint256[](_noOfCategories);
-        for (uint256 i = 0; i < _noOfCategories; i++) {
+        string[] memory categoryNamesArr = new string[](_noOfCategories);
+        for (uint16 i = 0; i < _noOfCategories; i++) {
             categoryCountsArr[i] = CategoryDetails[i].categoryMintedCount;
+            categoryNamesArr[i] = CategoryDetails[i].categoryName;
         }
         return categoryCountsArr;
     }
@@ -373,13 +376,14 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     }
 
     //To check and update conditions wrt nftId
-    function updateConditions(uint256 index) internal returns (uint256) {
-        uint256 nftId;
+    function updateConditions(uint256 index) internal returns (uint16) {
+        uint16 nftId;
         uint rnd = (index).mod(sumOfWeights);
-        
-        for(uint8 i=0; i<_noOfCategories; i++) {
+        bool flag = false;
+        for(uint16 i=0; i<_noOfCategories; i++) {
+            if(flag) break;
              if(rnd < weightsArray[i]){
-                bool flag = slotAvailable(i);
+                flag = slotAvailable(i);
                     if(flag){
                         data = bytes(string(CategoryDetails[i].categoryName));
                         nftId = i;
@@ -387,7 +391,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
                         break;
                     }
                     else{
-                        // 2nd last full slot
+                        //before 2nd last full slot
                     while(!flag && i < (_noOfCategories-1)){
                         i = i+1;
                         flag = slotAvailable(i);
@@ -399,8 +403,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
                             }
                     }
                         //last full slot
-                    while(!flag && i <= (_noOfCategories-1) && i>0){
-                        i = i-1;
+                    while(!flag && i <= (_noOfCategories-1) && i>=0){
                         flag = slotAvailable(i);
                         if(flag){
                                 data = bytes(string(CategoryDetails[i].categoryName));
@@ -408,6 +411,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
                                 CategoryDetails[i].categoryMintedCount++;
                                 break;
                             }
+                            i = i-1;
                     }
 
                 }
@@ -418,7 +422,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
             
             return nftId;
     }
-    function slotAvailable(uint nftId) internal view returns (bool){
+    function slotAvailable(uint16 nftId) internal view returns (bool){
         if(CategoryDetails[nftId].categoryMintedCount<CategoryDetails[nftId].categoryNftCount)
             return true;
         else
@@ -428,7 +432,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     function randomMinting(address user_addr) internal returns (uint256) {
         // nftId = random(); // we're assuming that random() returns only 0,1,2
         uint256 index = random();
-        uint256 nftId = updateConditions(index);
+        uint16 nftId = updateConditions(index);
         _mint(user_addr, nftId, numOfCopies, data);
         _totalNFTsMinted++;
         dropsite_NFT_Owner[user_addr].owned_Dropsite_NFTs.push(nftId);
@@ -441,7 +445,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     }
 
     //Random minting after Crypto Payments
-    function cryptoRandomMint(address user_addr, uint256 noOfMints)
+    function cryptoRandomMint(address user_addr, uint8 noOfMints)
         public
         payable
         contractIsNotPaused
