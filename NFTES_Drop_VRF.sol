@@ -15,13 +15,13 @@ contract VRFv2Consumer is VRFConsumerBaseV2 {
 
     // Rinkeby coordinator. For other networks,
     // see https://docs.chain.link/docs/vrf-contracts/#configurations
-    address vrfCoordinator = 0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed;
+    address vrfCoordinator = 0x6168499c0cFfCaCD319c818142124B7A15E857ab;
 
     // The gas lane to use, which specifies the maximum gas price to bump to.
     // For a list of available gas lanes on each network,
     // see https://docs.chain.link/docs/vrf-contracts/#configurations
     bytes32 keyHash =
-        0x4b09e658ed251bcafeebbc69400383d49f344ace09b9576fe248bb02c003fe9f;
+        0xd89b2bf150e3b9e13446986e571fb9cab24b13cea0a43ea20a6049a85cc807cc;
 
     // Depends on the number of requested values that you want sent to the
     // fulfillRandomWords() function. Storing each word costs about 20,000 gas,
@@ -66,7 +66,7 @@ contract VRFv2Consumer is VRFConsumerBaseV2 {
     }
 }
 
-contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
+contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
     using SafeMath for uint256;
     //NFT category
     // NFT Description & URL
@@ -88,12 +88,12 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     uint32 _mintEndTime;
 
     //Sum of weights for all NFTs for all categories: Must be 100;
-    uint64 sumOfWeights=0;
-    uint64[] weightsArray;
+    uint256 sumOfWeights=0;
+    uint256[] weightsArray;
     //Struct Category for category details
     struct Category {
         string categoryName;
-        uint16 categoryNftCount;
+        uint256 categoryNftCount;
         string categoryIpfsHash;
         uint16 categoryMintedCount;
     }
@@ -169,7 +169,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     function setURI(uint256 _id, string memory _uri) private {
         tokenURI[_id] = _uri;
         emit URI(_uri, _id);
-    }
+    }   
 
     function uri(uint256 _id) public view override returns (string memory) {
         return tokenURI[_id];
@@ -177,7 +177,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
 
     //Check NFTs issued to an address
     function returnNftsOwner(address addr)
-        public
+        external
         view
         returns (uint16[] memory)
     {
@@ -185,7 +185,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     }
 
     function setMaxMints(uint8 maxMints)
-        public
+        external
         onlyOwner
         contractIsNotPaused
     {
@@ -199,15 +199,15 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         uint8 noOfCategories,
         uint16 maxNFTs,
         string[] memory categoryNames,
-        uint16[] memory nftCounts,
+        uint256[] memory nftCounts,
         string[] memory ipfsHashes
-    ) public onlyOwner contractIsNotPaused {
+    ) external onlyOwner contractIsNotPaused {
         require((_noOfCategories == 0) && (_maxNFTs == 0), "Already Set");
         _noOfCategories = noOfCategories;
         _maxNFTs = maxNFTs;
         //Category memory category;
         //categoriesArray= new Category[] (_noOfCategories);
-        weightsArray = new uint64[](_noOfCategories);
+        weightsArray = new uint256[](_noOfCategories);
         for (uint8 i = 0; i < _noOfCategories; i++) {
             //category = Category(categoryNames[i],nftCounts[i],ipfsHashes[i]);
             CategoryDetails[i].categoryName = categoryNames[i];
@@ -222,19 +222,20 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         }
     }
 
+    //Function for testing
     function checkSumOfWeights() public view returns (uint){
         return sumOfWeights/(10**18);
     }
-    function setMintFee(uint256 mintFee) public onlyOwner contractIsNotPaused {
+    function setMintFee(uint256 mintFee) external onlyOwner contractIsNotPaused {
         _mintFees = mintFee;
     }
 
-    function setMintStatus(bool mintStatus) public onlyOwner {
+    function setMintStatus(bool mintStatus) external onlyOwner {
         if (isPaused != mintStatus) isPaused = mintStatus;
     }
 
     function setMintTimer(uint32 startTime, uint32 endTime)
-        public
+        external
         onlyOwner
         contractIsNotPaused
     {
@@ -246,7 +247,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     }
 
     function setMaxNFTsPerWallet(uint8 maxNFTsCount)
-        public
+        external
         onlyOwner
         contractIsNotPaused
     {
@@ -255,7 +256,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     }
 
     //returns start and end time
-    function checkMintTimer() public view returns (uint256, uint256) {
+    function checkMintTimer() external view returns (uint256, uint256) {
         return (_mintStartTime, _mintEndTime);
     }
 
@@ -270,7 +271,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     // }
 
     //function to set whitelisted addresses
-    function addToWhitelist(address[] memory whitelistArr) public onlyOwner {
+    function addToWhitelist(address[] memory whitelistArr) external onlyOwner {
         for (uint256 i = 0; i < whitelistArr.length; i++) {
             require(
                 whitelistedAddresses[whitelistArr[i]] == false,
@@ -282,7 +283,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
 
     //function to remove from whitelist
     function removeFromWhitelist(address[] memory whitelistArr)
-        public
+        external
         onlyOwner
     {
         for (uint256 i = 0; i < whitelistArr.length; i++) {
@@ -300,7 +301,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     }
 
     function getStatusMintFeeAndMaxMints()
-        public
+        external
         view
         onlyOwner
         returns (
@@ -313,19 +314,19 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     }
 
     //To Check total Minted NFTs
-    function checkTotalMinted() public view returns (uint256) {
+    function checkTotalMinted() external view returns (uint256) {
         return _totalNFTsMinted;
     }
 
     //To WithDraw input Ammount from Contract to Owners Address or any other Address
-    function withDraw(address payable to, uint256 amount) public onlyOwner {
+    function withDraw(address payable to, uint256 amount) external onlyOwner {
         uint256 Balance = address(this).balance;
         require(amount <= Balance, "Error! Not Enough Balance");
         to.transfer(amount);
     }
 
     //To Check Contract Balance in Wei
-    function contractBalance() public view onlyOwner returns (uint256) {
+    function contractBalance() external view onlyOwner returns (uint256) {
         return address(this).balance;
     }
 
@@ -333,7 +334,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
     //Double check this function for gas fees
     //Pending Changes
     function checkMintedCategoryWise()
-        public
+        external
         view
         onlyOwner
         returns ( uint256[] memory)
@@ -358,6 +359,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
         // Returns 0-10
         //To Achieve maximum level of randomization!
         //using SafeMath add function
+
         uint256 randomnumber = uint256(
             keccak256(
                 abi.encodePacked(
@@ -446,7 +448,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(389) {
 
     //Random minting after Crypto Payments
     function cryptoRandomMint(address user_addr, uint8 noOfMints)
-        public
+        external
         payable
         contractIsNotPaused
         categoriesAreSet
