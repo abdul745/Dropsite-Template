@@ -1,11 +1,13 @@
-// SPDX-License-Identifier:MIT
+
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-import "./ERC1155.sol";
-import "./Strings.sol";
+import "./ERC721.sol";
 import "./Ownable.sol";
+import "./ERC721URIStorage.sol";
 import "./SafeMath.sol";
 import "./VRFCoordinatorV2Interface.sol";
 import "./VRFConsumerBaseV2.sol";
+
 
 contract VRFv2Consumer is VRFConsumerBaseV2 {
     VRFCoordinatorV2Interface COORDINATOR;
@@ -66,8 +68,9 @@ contract VRFv2Consumer is VRFConsumerBaseV2 {
     }
 }
 
-contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
-    using SafeMath for uint256;
+
+contract DstageNft721 is ERC721, Ownable, ERC721URIStorage {
+using SafeMath for uint256;
     //NFT category
     // NFT Description & URL
     bytes data = "";
@@ -145,34 +148,27 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
     }
     bool public isPaused = true;
 
-    mapping(uint256 => string) tokenURI;
+    mapping(uint256 => string) private _tokenURIs;
     event URI(string value, bytes indexed id);
     event CategoriesSet(Category, uint);
 
-    constructor() ERC1155("") {
-        _totalNFTsMinted = 0; //Total NFTs Minted
+constructor (string memory name, string memory symbol) ERC721(name, symbol){
+    _totalNFTsMinted = 0; //Total NFTs Minted
         //numOfCopies = 1; //A user can mint only 1 NFT in one call
 
         //Initially 0 Categories & max 0 NFTs can be minted in one go have been minted
         _noOfCategories = 0;
         _maxNFTs = 0;
-    }
+}
 
-    function name() public pure returns (string memory) {
-        return "Dropsite";
-    }
-
-    function symbol() public pure returns (string memory) {
-        return "DST";
-    }
-
-    function setURI(uint256 _id, string memory _uri) private {
-        tokenURI[_id] = _uri;
-        emit URI(_uri, _id);
+     function _setTokenURI(uint256 tokenId, string memory _tokenURI) internal override virtual {
+        require(_exists(tokenId), "ERC721URIStorage: URI set of nonexistent token");
+        _tokenURIs[tokenId] = _tokenURI;
     }   
 
-    function uri(uint256 _id) public view override returns (string memory) {
-        return tokenURI[_id];
+    function tokenURI(uint256 tokenId) public view override virtual returns (string memory) {
+        require(_exists(tokenId), "ERC721URIStorage: URI query for nonexistent token");
+        return _tokenURIs[tokenId];
     }
 
     //Check NFTs issued to an address
@@ -216,7 +212,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
             CategoryDetails[i].categoryMintedCount = 0;
             weightsArray[i] = (nftCounts[i]*100*(10**18)/maxNFTs);
             sumOfWeights += weightsArray[i];
-            setURI(i, ipfsHashes[i]);
+            _setTokenURI(i, ipfsHashes[i]);
             emit CategoriesSet(CategoryDetails[i],sumOfWeights);
             //categoriesArray.push(category);
         }
@@ -435,7 +431,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
         // nftId = random(); // we're assuming that random() returns only 0,1,2
         uint256 index = random();
         uint16 nftId = updateConditions(index);
-        _mint(user_addr, nftId, numOfCopies, data);
+        _mint(user_addr, nftId);
         _totalNFTsMinted++;
         dropsite_NFT_Owner[user_addr].owned_Dropsite_NFTs.push(nftId);
         return (nftId);
@@ -487,4 +483,5 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
         emit isMinted(user_addr, randomMintedNfts);
         return randomMintedNfts;
     }
+    
 }
