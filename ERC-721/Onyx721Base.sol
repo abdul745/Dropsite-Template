@@ -1,17 +1,16 @@
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 import "./ERC721.sol";
 import "./Ownable.sol";
+import "./Context.sol";
 import "./ERC721URIStorage.sol";
 import "./SafeMath.sol";
 import "./VRFCoordinatorV2Interface.sol";
 import "./VRFConsumerBaseV2.sol";
 
-
 contract VRFv2Consumer is VRFConsumerBaseV2 {
     VRFCoordinatorV2Interface COORDINATOR;
-
+    
     // Your subscription ID.
     uint64 s_subscriptionId;
 
@@ -68,12 +67,12 @@ contract VRFv2Consumer is VRFConsumerBaseV2 {
     }
 }
 
-
 contract DstageNft721 is ERC721, Ownable, ERC721URIStorage {
-using SafeMath for uint256;
+    using SafeMath for uint256;
+    using Address for address;
     //NFT category
     // NFT Description & URL
-    bytes data = "";
+    string TokenURI = "";
     uint16 _totalNFTsMinted; //Total NFTs Minted
     uint8 public constant numOfCopies = 1; //A user can mint only 1 NFT in one go
     uint256 _mintFees; //Mint fee for single random minting
@@ -84,20 +83,20 @@ using SafeMath for uint256;
 
     //Max mints in one go
     uint8 _maxMints = 0;
-    event isMinted(address indexed addr, uint256[] ids);
+    event isMinted(address indexed addr, string[] ids);
 
     //Mint Start and end Time - UNIX Timestamp
     uint32 _mintStartTime;
     uint32 _mintEndTime;
 
     //Sum of weights for all NFTs for all categories: Must be 100;
-    uint256 sumOfWeights=0;
-    uint256[] weightsArray;
+    uint256 sumOfWeights = 0;
+    uint256[] rarityArray;
     //Struct Category for category details
     struct Category {
         string categoryName;
         uint256 categoryNftCount;
-        string categoryIpfsHash;
+        //string categoryIpfsHash;
         uint16 categoryMintedCount;
     }
 
@@ -150,24 +149,40 @@ using SafeMath for uint256;
 
     mapping(uint256 => string) private _tokenURIs;
     event URI(string value, bytes indexed id);
-    event CategoriesSet(Category, uint);
+    event CategoriesSet(Category, uint256);
 
-constructor (string memory name, string memory symbol) ERC721(name, symbol){
-    _totalNFTsMinted = 0; //Total NFTs Minted
+    constructor(string memory name, string memory symbol) ERC721(name, symbol) {
+        _totalNFTsMinted = 0; //Total NFTs Minted
         //numOfCopies = 1; //A user can mint only 1 NFT in one call
 
         //Initially 0 Categories & max 0 NFTs can be minted in one go have been minted
         _noOfCategories = 0;
         _maxNFTs = 0;
-}
+    }
 
-     function _setTokenURI(uint256 tokenId, string memory _tokenURI) internal override virtual {
-        require(_exists(tokenId), "ERC721URIStorage: URI set of nonexistent token");
+    function _setTokenURI(uint256 tokenId, string memory _tokenURI)
+        internal
+        virtual
+        override
+    {
+        require(
+            _exists(tokenId),
+            "ERC721URIStorage: URI set of nonexistent token"
+        );
         _tokenURIs[tokenId] = _tokenURI;
-    }   
+    }
 
-    function tokenURI(uint256 tokenId) public view override virtual returns (string memory) {
-        require(_exists(tokenId), "ERC721URIStorage: URI query for nonexistent token");
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        virtual
+        override
+        returns (string memory)
+    {
+        require(
+            _exists(tokenId),
+            "ERC721URIStorage: URI query for nonexistent token"
+        );
         return _tokenURIs[tokenId];
     }
 
@@ -195,34 +210,38 @@ constructor (string memory name, string memory symbol) ERC721(name, symbol){
         uint8 noOfCategories,
         uint16 maxNFTs,
         string[] memory categoryNames,
-        uint256[] memory nftCounts,
-        string[] memory ipfsHashes
+        uint256[] memory nftCounts
     ) external onlyOwner contractIsNotPaused {
         require((_noOfCategories == 0) && (_maxNFTs == 0), "Already Set");
         _noOfCategories = noOfCategories;
         _maxNFTs = maxNFTs;
         //Category memory category;
         //categoriesArray= new Category[] (_noOfCategories);
-        weightsArray = new uint256[](_noOfCategories);
+        rarityArray = new uint256[](_noOfCategories);
         for (uint8 i = 0; i < _noOfCategories; i++) {
             //category = Category(categoryNames[i],nftCounts[i],ipfsHashes[i]);
             CategoryDetails[i].categoryName = categoryNames[i];
             CategoryDetails[i].categoryNftCount = nftCounts[i];
-            CategoryDetails[i].categoryIpfsHash = ipfsHashes[i];
+            //CategoryDetails[i].categoryIpfsHash = ipfsHashes[i];
             CategoryDetails[i].categoryMintedCount = 0;
-            weightsArray[i] = (nftCounts[i]*100*(10**18)/maxNFTs);
-            sumOfWeights += weightsArray[i];
-            _setTokenURI(i, ipfsHashes[i]);
-            emit CategoriesSet(CategoryDetails[i],sumOfWeights);
+            rarityArray[i] = ((nftCounts[i] * 100 * (10**18)) / maxNFTs);
+            sumOfWeights += rarityArray[i];
+            //_setTokenURI(i, ipfsHashes[i]);
+            emit CategoriesSet(CategoryDetails[i], sumOfWeights);
             //categoriesArray.push(category);
         }
     }
 
     //Function for testing
-    function checkSumOfWeights() public view returns (uint){
-        return sumOfWeights/(10**18);
+    function checkSumOfWeights() public view returns (uint256) {
+        return sumOfWeights / (10**18);
     }
-    function setMintFee(uint256 mintFee) external onlyOwner contractIsNotPaused {
+
+    function setMintFee(uint256 mintFee)
+        external
+        onlyOwner
+        contractIsNotPaused
+    {
         _mintFees = mintFee;
     }
 
@@ -247,7 +266,10 @@ constructor (string memory name, string memory symbol) ERC721(name, symbol){
         onlyOwner
         contractIsNotPaused
     {
-        require(maxNFTsCount<=_maxMints, "Max NFTs per wallet should be less than or equal to max Mint Limit");
+        require(
+            maxNFTsCount <= _maxMints,
+            "Max NFTs per wallet should be less than or equal to max Mint Limit"
+        );
         _maxNFTsPerWallet = maxNFTsCount;
     }
 
@@ -279,7 +301,7 @@ constructor (string memory name, string memory symbol) ERC721(name, symbol){
 
     //function to remove from whitelist
     function removeFromWhitelist(address[] memory whitelistArr)
-        external 
+        external
         onlyOwner
     {
         for (uint256 i = 0; i < whitelistArr.length; i++) {
@@ -333,7 +355,7 @@ constructor (string memory name, string memory symbol) ERC721(name, symbol){
         external
         view
         onlyOwner
-        returns ( uint256[] memory)
+        returns (uint256[] memory)
     {
         //string[] memory categoryNamesArr = new string[](_noOfCategories);
         uint256[] memory categoryCountsArr = new uint256[](_noOfCategories);
@@ -366,7 +388,7 @@ constructor (string memory name, string memory symbol) ERC721(name, symbol){
                             .add(CategoryDetails[1].categoryMintedCount)
                             .add(CategoryDetails[0].categoryMintedCount)
                     ),
-                    msg.sender
+                    _msgSender()
                 )
             )
         );
@@ -376,65 +398,68 @@ constructor (string memory name, string memory symbol) ERC721(name, symbol){
     //To check and update conditions wrt nftId
     function updateConditions(uint256 index) internal returns (uint16) {
         uint16 nftId;
-        uint rnd = (index).mod(sumOfWeights);
+        uint256 rnd = (index).mod(sumOfWeights);
         bool flag = false;
-        for(uint16 i=0; i<_noOfCategories; i++) {
-            if(flag) break;
-             if(rnd < weightsArray[i]){
+        for (uint16 i = 0; i < _noOfCategories; i++) {
+            if (flag) break;
+            if (rnd < rarityArray[i]) {
                 flag = slotAvailable(i);
-                    if(flag){
-                        data = bytes(string(CategoryDetails[i].categoryName));
-                        nftId = i;
-                        CategoryDetails[i].categoryMintedCount++;
-                        break;
-                    }
-                    else{
-                        //before 2nd last full slot
-                    while(!flag && i < (_noOfCategories-1)){
-                        i = i+1;
+                if (flag) {
+                    TokenURI = string(CategoryDetails[i].categoryName);
+                    nftId = i;
+                    CategoryDetails[i].categoryMintedCount++;
+                    break;
+                } else {
+                    //before 2nd last full slot
+                    while (!flag && i < (_noOfCategories - 1)) {
+                        i = i + 1;
                         flag = slotAvailable(i);
-                        if(flag){
-                                data = bytes(string(CategoryDetails[i].categoryName));
-                                nftId = i;
-                                CategoryDetails[i].categoryMintedCount++;
-                                break;
-                            }
+                        if (flag) {
+                            TokenURI = string(CategoryDetails[i].categoryName);
+                            nftId = i;
+                            CategoryDetails[i].categoryMintedCount++;
+                            break;
+                        }
                     }
-                        //last full slot
-                    while(!flag && i <= (_noOfCategories-1) && i>=0){
+                    //last full slot
+                    while (!flag && i <= (_noOfCategories - 1) && i >= 0) {
                         flag = slotAvailable(i);
-                        if(flag){
-                                data = bytes(string(CategoryDetails[i].categoryName));
-                                nftId = i;
-                                CategoryDetails[i].categoryMintedCount++;
-                                break;
-                            }
-                            i = i-1;
+                        if (flag) {
+                            TokenURI = string(CategoryDetails[i].categoryName);
+                            nftId = i;
+                            CategoryDetails[i].categoryMintedCount++;
+                            break;
+                        }
+                        i = i - 1;
                     }
-
                 }
-             }
-             else
-                rnd -= weightsArray[i];
-            }
-            
-            return nftId;
-    }
-    function slotAvailable(uint16 nftId) internal view returns (bool){
-        if(CategoryDetails[nftId].categoryMintedCount<CategoryDetails[nftId].categoryNftCount)
-            return true;
-        else
-            return false;
+            } else rnd -= rarityArray[i];
+        }
+
+        return nftId;
     }
 
-    function randomMinting(address user_addr) internal returns (uint256) {
+    function slotAvailable(uint16 nftId) internal view returns (bool) {
+        if (
+            CategoryDetails[nftId].categoryMintedCount <
+            CategoryDetails[nftId].categoryNftCount
+        ) return true;
+        else return false;
+    }
+
+    function randomMinting(address user_addr)
+        internal
+        returns (uint256, string memory)
+    {
         // nftId = random(); // we're assuming that random() returns only 0,1,2
+        // nftId here is rarity ID
         uint256 index = random();
         uint16 nftId = updateConditions(index);
         _mint(user_addr, nftId);
+        _setTokenURI(nftId, TokenURI);
         _totalNFTsMinted++;
         dropsite_NFT_Owner[user_addr].owned_Dropsite_NFTs.push(nftId);
-        return (nftId);
+        return (nftId, TokenURI);
     }
 
     //MATIC Amount will be deposited
@@ -450,8 +475,13 @@ constructor (string memory name, string memory symbol) ERC721(name, symbol){
         categoriesAreSet
         mintingFeeIsSet
         maxMintingIsSet
-        returns (uint256[] memory)
+        returns (string[] memory)
     {
+        require(
+            _msgSender() == tx.origin && !_msgSender().isContract(),
+            "Contracts cannot mint"
+        );
+        require(user_addr != address(0), "Cannot mint to the zero address");
         require(
             noOfMints <= _maxMints && noOfMints > 0,
             "You cannot mint more than max mint limit"
@@ -473,15 +503,22 @@ constructor (string memory name, string memory symbol) ERC721(name, symbol){
             );
         //else if time has ended or user_addr is in the whitelist
         uint256 returnedNftID;
-        uint256[] memory randomMintedNfts = new uint256[](noOfMints);
+        string memory returnedNftTokenURI;
+        string[] memory randomMintedNfts = new string[](noOfMints);
         for (uint256 i = 0; i <= noOfMints - 1; i++) {
-            returnedNftID = randomMinting(user_addr);
-            randomMintedNfts[i] = returnedNftID;
+            (returnedNftID, returnedNftTokenURI) = randomMinting(user_addr);
+            //randomMintedNfts[i] = returnedNftID;
+            randomMintedNfts[i] = string(
+                abi.encodePacked(
+                    Strings.toString(returnedNftID),
+                    "_",
+                    returnedNftTokenURI
+                )
+            );
         }
         depositAmount(_msgSender(), msg.value);
         NFTsPerWallet[user_addr]++;
         emit isMinted(user_addr, randomMintedNfts);
         return randomMintedNfts;
     }
-    
 }

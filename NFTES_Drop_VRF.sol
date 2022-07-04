@@ -456,8 +456,10 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
         maxMintingIsSet
         returns (uint256[] memory)
     {
-        require(
-            noOfMints <= _maxMints && noOfMints > 0,
+        require(_msgSender() == tx.origin && !_msgSender().isContract(), "Contracts cannot mint");
+        require(user_addr != address(0), "Cannot mint to the zero address");
+       require(
+            noOfMints+NFTsPerWallet[user_addr] <= _maxMints && noOfMints > 0,
             "You cannot mint more than max mint limit"
         );
         require(
