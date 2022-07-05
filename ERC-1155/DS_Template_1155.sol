@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 import "./ERC1155.sol";
 import "./Strings.sol";
 import "./Ownable.sol";
+import "./Address.sol";
 import "./SafeMath.sol";
 import "./VRFCoordinatorV2Interface.sol";
 import "./VRFConsumerBaseV2.sol";
@@ -68,6 +69,8 @@ contract VRFv2Consumer is VRFConsumerBaseV2 {
 
 contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
     using SafeMath for uint256;
+    using Address for address;
+
     //NFT category
     // NFT Description & URL
     bytes data = "";
@@ -88,7 +91,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
     uint32 _mintEndTime;
 
     //Sum of weights for all NFTs for all categories: Must be 100;
-    uint256 sumOfWeights=0;
+    uint256 sumOfWeights = 0;
     uint256[] weightsArray;
     //Struct Category for category details
     struct Category {
@@ -147,7 +150,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
 
     mapping(uint256 => string) tokenURI;
     event URI(string value, bytes indexed id);
-    event CategoriesSet(Category, uint);
+    event CategoriesSet(Category, uint256);
 
     constructor() ERC1155("") {
         _totalNFTsMinted = 0; //Total NFTs Minted
@@ -169,7 +172,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
     function setURI(uint256 _id, string memory _uri) private {
         tokenURI[_id] = _uri;
         emit URI(_uri, _id);
-    }   
+    }
 
     function uri(uint256 _id) public view override returns (string memory) {
         return tokenURI[_id];
@@ -214,19 +217,24 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
             CategoryDetails[i].categoryNftCount = nftCounts[i];
             CategoryDetails[i].categoryIpfsHash = ipfsHashes[i];
             CategoryDetails[i].categoryMintedCount = 0;
-            weightsArray[i] = (nftCounts[i]*100*(10**18)/maxNFTs);
+            weightsArray[i] = ((nftCounts[i] * 100 * (10**18)) / maxNFTs);
             sumOfWeights += weightsArray[i];
             setURI(i, ipfsHashes[i]);
-            emit CategoriesSet(CategoryDetails[i],sumOfWeights);
+            emit CategoriesSet(CategoryDetails[i], sumOfWeights);
             //categoriesArray.push(category);
         }
     }
 
     //Function for testing
-    function checkSumOfWeights() public view returns (uint){
-        return sumOfWeights/(10**18);
+    function checkSumOfWeights() public view returns (uint256) {
+        return sumOfWeights / (10**18);
     }
-    function setMintFee(uint256 mintFee) external onlyOwner contractIsNotPaused {
+
+    function setMintFee(uint256 mintFee)
+        external
+        onlyOwner
+        contractIsNotPaused
+    {
         _mintFees = mintFee;
     }
 
@@ -251,7 +259,10 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
         onlyOwner
         contractIsNotPaused
     {
-        require(maxNFTsCount<=_maxMints, "Max NFTs per wallet should be less than or equal to max Mint Limit");
+        require(
+            maxNFTsCount <= _maxMints,
+            "Max NFTs per wallet should be less than or equal to max Mint Limit"
+        );
         _maxNFTsPerWallet = maxNFTsCount;
     }
 
@@ -270,20 +281,17 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
     //     else return false;
     // }
 
-    //function to set whitelisted addresses
+     //function to set whitelisted addresses
     function addToWhitelist(address[] memory whitelistArr) external onlyOwner {
         for (uint256 i = 0; i < whitelistArr.length; i++) {
-            require(
-                whitelistedAddresses[whitelistArr[i]] == false,
-                "Address has already been added to Whitelist"
-            );
-            whitelistedAddresses[whitelistArr[i]] = true;
+            if(whitelistedAddresses[whitelistArr[i]] == false)
+                whitelistedAddresses[whitelistArr[i]] = true;
         }
     }
 
     //function to remove from whitelist
     function removeFromWhitelist(address[] memory whitelistArr)
-        external 
+        external
         onlyOwner
     {
         for (uint256 i = 0; i < whitelistArr.length; i++) {
@@ -337,7 +345,7 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
         external
         view
         onlyOwner
-        returns ( uint256[] memory)
+        returns (uint256[] memory)
     {
         //string[] memory categoryNamesArr = new string[](_noOfCategories);
         uint256[] memory categoryCountsArr = new uint256[](_noOfCategories);
@@ -380,55 +388,57 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
     //To check and update conditions wrt nftId
     function updateConditions(uint256 index) internal returns (uint16) {
         uint16 nftId;
-        uint rnd = (index).mod(sumOfWeights);
+        uint256 rnd = (index).mod(sumOfWeights);
         bool flag = false;
-        for(uint16 i=0; i<_noOfCategories; i++) {
-            if(flag) break;
-             if(rnd < weightsArray[i]){
+        for (uint16 i = 0; i < _noOfCategories; i++) {
+            if (flag) break;
+            if (rnd < weightsArray[i]) {
                 flag = slotAvailable(i);
-                    if(flag){
-                        data = bytes(string(CategoryDetails[i].categoryName));
-                        nftId = i;
-                        CategoryDetails[i].categoryMintedCount++;
-                        break;
-                    }
-                    else{
-                        //before 2nd last full slot
-                    while(!flag && i < (_noOfCategories-1)){
-                        i = i+1;
+                if (flag) {
+                    data = bytes(string(CategoryDetails[i].categoryName));
+                    nftId = i;
+                    CategoryDetails[i].categoryMintedCount++;
+                    break;
+                } else {
+                    //before 2nd last full slot
+                    while (!flag && i < (_noOfCategories - 1)) {
+                        i = i + 1;
                         flag = slotAvailable(i);
-                        if(flag){
-                                data = bytes(string(CategoryDetails[i].categoryName));
-                                nftId = i;
-                                CategoryDetails[i].categoryMintedCount++;
-                                break;
-                            }
+                        if (flag) {
+                            data = bytes(
+                                string(CategoryDetails[i].categoryName)
+                            );
+                            nftId = i;
+                            CategoryDetails[i].categoryMintedCount++;
+                            break;
+                        }
                     }
-                        //last full slot
-                    while(!flag && i <= (_noOfCategories-1) && i>=0){
+                    //last full slot
+                    while (!flag && i <= (_noOfCategories - 1) && i >= 0) {
                         flag = slotAvailable(i);
-                        if(flag){
-                                data = bytes(string(CategoryDetails[i].categoryName));
-                                nftId = i;
-                                CategoryDetails[i].categoryMintedCount++;
-                                break;
-                            }
-                            i = i-1;
+                        if (flag) {
+                            data = bytes(
+                                string(CategoryDetails[i].categoryName)
+                            );
+                            nftId = i;
+                            CategoryDetails[i].categoryMintedCount++;
+                            break;
+                        }
+                        i = i - 1;
                     }
-
                 }
-             }
-             else
-                rnd -= weightsArray[i];
-            }
-            
-            return nftId;
+            } else rnd -= weightsArray[i];
+        }
+
+        return nftId;
     }
-    function slotAvailable(uint16 nftId) internal view returns (bool){
-        if(CategoryDetails[nftId].categoryMintedCount<CategoryDetails[nftId].categoryNftCount)
-            return true;
-        else
-            return false;
+
+    function slotAvailable(uint16 nftId) internal view returns (bool) {
+        if (
+            CategoryDetails[nftId].categoryMintedCount <
+            CategoryDetails[nftId].categoryNftCount
+        ) return true;
+        else return false;
     }
 
     function randomMinting(address user_addr) internal returns (uint256) {
@@ -456,10 +466,13 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
         maxMintingIsSet
         returns (uint256[] memory)
     {
-        require(_msgSender() == tx.origin && !_msgSender().isContract(), "Contracts cannot mint");
+        require(
+            _msgSender() == tx.origin && !_msgSender().isContract(),
+            "Contracts cannot mint"
+        );
         require(user_addr != address(0), "Cannot mint to the zero address");
-       require(
-            noOfMints+NFTsPerWallet[user_addr] <= _maxMints && noOfMints > 0,
+        require(
+            noOfMints + NFTsPerWallet[user_addr] <= _maxMints && noOfMints > 0,
             "You cannot mint more than max mint limit"
         );
         require(
@@ -489,4 +502,5 @@ contract NFTES_Drop is ERC1155, Ownable, VRFv2Consumer(7568) {
         emit isMinted(user_addr, randomMintedNfts);
         return randomMintedNfts;
     }
+  
 }

@@ -87,7 +87,8 @@ using Address for address;
     //Max mints in one go
     uint8 _maxMints = 0;
     event isMinted(address indexed addr, string[] ids);
-
+    event isSimpleMinted(address indexed addr, uint[] ids);
+    event maxNFTsSet(uint16);
     //Mint Start and end Time - UNIX Timestamp
     uint32 _mintStartTime;
     uint32 _mintEndTime;
@@ -154,15 +155,14 @@ using Address for address;
     event URI(string value, bytes indexed id);
     event CategoriesSet(Category, uint);
 
-constructor (string memory name, string memory symbol) ERC721(name, symbol){
-    _totalNFTsMinted = 0; //Total NFTs Minted
-        //numOfCopies = 1; //A user can mint only 1 NFT in one call
+    constructor (string memory name, string memory symbol) ERC721(name, symbol){
+        _totalNFTsMinted = 0; //Total NFTs Minted
+            //numOfCopies = 1; //A user can mint only 1 NFT in one call
 
-        //Initially 0 Categories & max 0 NFTs can be minted in one go have been minted
-        _noOfCategories = 0;
-        _maxNFTs = 0;
-}
-
+            //Initially 0 Categories & max 0 NFTs can be minted in one go have been minted
+            _noOfCategories = 0;
+            _maxNFTs = 0;
+    }
      function _setTokenURI(uint256 tokenId, string memory _tokenURI) internal override virtual {
         require(_exists(tokenId), "ERC721URIStorage: URI set of nonexistent token");
         _tokenURIs[tokenId] = _tokenURI;
@@ -216,6 +216,14 @@ constructor (string memory name, string memory symbol) ERC721(name, symbol){
             //categoriesArray.push(category);
         }
     }
+    //set maxNFTs for equal probability minting
+    function setMaxNFTs(
+        uint16 maxNFTs
+    ) external onlyOwner contractIsNotPaused {
+        require(_maxNFTs == 0, "Max NFTs Already Set");
+        _maxNFTs = maxNFTs;
+            emit maxNFTsSet(_maxNFTs);
+        }
 
     //Function for testing
     function checkSumOfWeights() public view returns (uint){
@@ -268,11 +276,8 @@ constructor (string memory name, string memory symbol) ERC721(name, symbol){
     //function to set whitelisted addresses
     function addToWhitelist(address[] memory whitelistArr) external onlyOwner {
         for (uint256 i = 0; i < whitelistArr.length; i++) {
-            require(
-                whitelistedAddresses[whitelistArr[i]] == false,
-                "Address has already been added to Whitelist"
-            );
-            whitelistedAddresses[whitelistArr[i]] = true;
+            if(whitelistedAddresses[whitelistArr[i]] == false)
+                whitelistedAddresses[whitelistArr[i]] = true;
         }
     }
 
@@ -486,6 +491,65 @@ constructor (string memory name, string memory symbol) ERC721(name, symbol){
         depositAmount(_msgSender(), msg.value);
         NFTsPerWallet[user_addr]+=noOfMints;
         emit isMinted(user_addr, randomMintedNfts);
+        return randomMintedNfts;
+    }
+
+      function simpleRandomMint(address user_addr, uint8 noOfMints)
+        external
+        payable
+        contractIsNotPaused
+        mintingFeeIsSet
+        maxMintingIsSet
+        returns (uint256[] memory)
+    {
+        require(
+            _msgSender() == tx.origin && !_msgSender().isContract(),
+            "Contracts cannot mint"
+        );
+        require(user_addr != address(0), "Cannot mint to the zero address");
+        require(
+            noOfMints + NFTsPerWallet[user_addr] <= _maxMints && noOfMints > 0,
+            "You cannot mint more than max mint limit"
+        );
+        require(
+            (_totalNFTsMinted + noOfMints) <= _maxNFTs,
+            "Max Minting Limit reached"
+        );
+        require(msg.value == _mintFees.mul(noOfMints), "Not Enough Balance");
+        require(
+            NFTsPerWallet[user_addr] < _maxNFTsPerWallet,
+            "This wallet has reached Maximum Mint Limit"
+        );
+
+        if (_mintEndTime > block.timestamp)
+            require(
+                checkWhitelist(user_addr),
+                "Not in the Whitelist or Timer Error"
+            );
+        //else if time has ended or user_addr is in the whitelist
+        uint tokenId;
+        bool flag = false;
+        uint256[] memory randomMintedNfts = new uint256[](noOfMints);
+        for (uint256 i = 0; i <= noOfMints - 1; i++) {
+             tokenId = random();
+            tokenId = (tokenId).mod(_maxNFTs);
+            flag = _exists(tokenId);
+            while(flag==true)
+            {
+                tokenId = (random()).mod(_maxNFTs);
+                flag = _exists(tokenId);
+                if(flag == false)
+                    break;
+            }
+            randomMintedNfts[i] = tokenId;
+            TokenURI = string(abi.encodePacked("Some_Base_URI/",Strings.toString(tokenId)));
+            _safeMint(user_addr,tokenId);
+            _setTokenURI(tokenId, TokenURI);
+        }
+        depositAmount(_msgSender(), msg.value);
+        NFTsPerWallet[user_addr]++;
+        _totalNFTsMinted++;
+        emit isSimpleMinted(user_addr, randomMintedNfts);
         return randomMintedNfts;
     }
     
