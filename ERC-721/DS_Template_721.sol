@@ -5,7 +5,6 @@ import "./ERC721.sol";
 import "./Ownable.sol";
 import "./Context.sol";
 import "./ERC721URIStorage.sol";
-import "./SafeMath.sol";
 import "./VRFCoordinatorV2Interface.sol";
 import "./VRFConsumerBaseV2.sol";
 
@@ -70,14 +69,12 @@ contract VRFv2Consumer is VRFConsumerBaseV2 {
 }
 
 
-contract DS721 is ERC721, Ownable, ERC721URIStorage {
-using SafeMath for uint256;
+contract NFTES_Drop_002 is ERC721, Ownable, ERC721URIStorage {
 using Address for address;
     //NFT category
     // NFT Description & URL
     string TokenURI = "";
     uint16 _totalNFTsMinted; //Total NFTs Minted
-    uint8 public constant numOfCopies = 1; //A user can mint only 1 NFT in one go
     uint256 _mintFees; //Mint fee for single random minting
 
     uint16 _maxNFTs;
@@ -114,9 +111,6 @@ using Address for address;
 
     //ID-Category mapping
     mapping(uint16 => Category) CategoryDetails;
-
-    //payments Mapping
-    mapping(address => uint256) deposits;
 
     //categoryWise no of mints
     // mapping(uint256 => uint256) categoryMints;
@@ -157,7 +151,6 @@ using Address for address;
 
     constructor (string memory name, string memory symbol) ERC721(name, symbol){
         _totalNFTsMinted = 0; //Total NFTs Minted
-            //numOfCopies = 1; //A user can mint only 1 NFT in one call
 
             //Initially 0 Categories & max 0 NFTs can be minted in one go have been minted
             _noOfCategories = 0;
@@ -217,7 +210,7 @@ using Address for address;
         }
     }
     //set maxNFTs for equal probability minting
-    function setMaxNFTs(
+    function setMaxNFTsToBeMinted(
         uint16 maxNFTs
     ) external onlyOwner contractIsNotPaused {
         require(_maxNFTs == 0, "Max NFTs Already Set");
@@ -226,9 +219,9 @@ using Address for address;
         }
 
     //Function for testing
-    function checkSumOfWeights() public view returns (uint){
-        return sumOfWeights/(10**18);
-    }
+    // function checkSumOfWeights() public view returns (uint){
+    //     return sumOfWeights/(10**18);
+    // }
     function setMintFee(uint256 mintFee) external onlyOwner contractIsNotPaused {
         _mintFees = mintFee;
     }
@@ -249,13 +242,13 @@ using Address for address;
         _mintEndTime = endTime;
     }
 
-    function setMaxNFTsPerWallet(uint8 maxNFTsCount)
+    function setMaxNFTsPerWallet(uint8 maxNFTsPerWallet)
         external
         onlyOwner
         contractIsNotPaused
     {
-        require(maxNFTsCount<=_maxMints, "Max NFTs per wallet should be less than or equal to max Mint Limit");
-        _maxNFTsPerWallet = maxNFTsCount;
+        require(maxNFTsPerWallet<=_maxMints, "Max NFTs per wallet should be less than or equal to max Mint Limit");
+        _maxNFTsPerWallet = maxNFTsPerWallet;
     }
 
     //returns start and end time
@@ -365,10 +358,10 @@ using Address for address;
                 abi.encodePacked(
                     (
                         (block.timestamp)
-                            .add(_totalNFTsMinted)
-                            .add(CategoryDetails[2].categoryMintedCount)
-                            .add(CategoryDetails[1].categoryMintedCount)
-                            .add(CategoryDetails[0].categoryMintedCount)
+                            +(_totalNFTsMinted)
+                            +(CategoryDetails[2].categoryMintedCount)
+                            +(CategoryDetails[1].categoryMintedCount)
+                            +(CategoryDetails[0].categoryMintedCount)
                     ),
                     _msgSender()
                 )
@@ -380,7 +373,7 @@ using Address for address;
     //To check and update conditions wrt nftId
     function updateConditions(uint256 index) internal returns (uint24) {
         uint24 nftId;
-        uint rnd = (index).mod(sumOfWeights);
+        uint rnd = (index)%(sumOfWeights);
         bool flag = false;
         for(uint16 i=0; i<_noOfCategories; i++) {
             if(flag) break;
@@ -443,11 +436,6 @@ using Address for address;
         return (nftId, TokenURI);
     }
 
-    //MATIC Amount will be deposited
-    function depositAmount(address payee, uint256 amountToDeposit) internal {
-        deposits[payee] += amountToDeposit;
-    }
-
     //Random minting after Crypto Payments
     function cryptoRandomMint(address user_addr, uint8 noOfMints)
         external
@@ -456,47 +444,31 @@ using Address for address;
         categoriesAreSet
         mintingFeeIsSet
         maxMintingIsSet
-        returns (string[] memory)
+        returns (uint256[] memory)
     {
-        require(_msgSender() == tx.origin && !_msgSender().isContract(), "Contracts cannot mint");
-        require(user_addr != address(0), "Cannot mint to the zero address");
-        require(
-            noOfMints+NFTsPerWallet[user_addr] <= _maxMints && noOfMints > 0,
-            "You cannot mint more than max mint limit"
-        );
-        require(
-            (_totalNFTsMinted + noOfMints) <= _maxNFTs,
-            "Max Minting Limit reached"
-        );
-        require(msg.value == _mintFees.mul(noOfMints), "Not Enough Balance");
-        require(
-            NFTsPerWallet[user_addr] < _maxNFTsPerWallet,
-            "This wallet has reached Maximum Mint Limit"
-        );
-
-        if (_mintEndTime > block.timestamp)
-            require(
-                checkWhitelist(user_addr),
-                "Not in the Whitelist or Timer Error"
-            );
-        //else if time has ended or user_addr is in the whitelist
-        uint256 returnedNftID;
-        string memory returnedNftTokenURI;
-        string[] memory randomMintedNfts = new string[](noOfMints);
-        for (uint256 i = 0; i <= noOfMints - 1; i++) {
-            (returnedNftID,returnedNftTokenURI) = randomMinting(user_addr);
-            //randomMintedNfts[i] = returnedNftID;
-            randomMintedNfts[i]= returnedNftTokenURI;
-        }
-        depositAmount(_msgSender(), msg.value);
-        NFTsPerWallet[user_addr]+=noOfMints;
-        emit isMinted(user_addr, randomMintedNfts);
+        require(msg.value == _mintFees*(noOfMints), "Not Enough Amount Provided");
+        uint256[] memory randomMintedNfts = new uint256[](noOfMints);
+        randomMintedNfts = RandomMint( user_addr,  noOfMints);
         return randomMintedNfts;
     }
 
-      function simpleRandomMint(address user_addr, uint8 noOfMints)
+     //Random minting after Crypto Payments
+    function fiatRandomMint(address user_addr, uint8 noOfMints)
         external
-        payable
+        onlyOwner
+        contractIsNotPaused
+        categoriesAreSet
+        mintingFeeIsSet
+        maxMintingIsSet
+        returns (uint256[] memory)
+    {
+        uint256[] memory randomMintedNfts = new uint256[](noOfMints);
+        randomMintedNfts = RandomMint( user_addr,  noOfMints);
+        return randomMintedNfts;
+    }
+
+      function RandomMint(address user_addr, uint8 noOfMints)
+        internal
         contractIsNotPaused
         mintingFeeIsSet
         maxMintingIsSet
@@ -515,7 +487,7 @@ using Address for address;
             (_totalNFTsMinted + noOfMints) <= _maxNFTs,
             "Max Minting Limit reached"
         );
-        require(msg.value == _mintFees.mul(noOfMints), "Not Enough Balance");
+        
         require(
             NFTsPerWallet[user_addr] < _maxNFTsPerWallet,
             "This wallet has reached Maximum Mint Limit"
@@ -532,11 +504,11 @@ using Address for address;
         uint256[] memory randomMintedNfts = new uint256[](noOfMints);
         for (uint256 i = 0; i <= noOfMints - 1; i++) {
              tokenId = random();
-            tokenId = (tokenId).mod(_maxNFTs);
+            tokenId = (tokenId)%(_maxNFTs);
             flag = _exists(tokenId);
             while(flag==true)
             {
-                tokenId = (random()).mod(_maxNFTs);
+                tokenId = (random())%(_maxNFTs);
                 flag = _exists(tokenId);
                 if(flag == false)
                     break;
@@ -546,7 +518,6 @@ using Address for address;
             _safeMint(user_addr,tokenId);
             _setTokenURI(tokenId, TokenURI);
         }
-        depositAmount(_msgSender(), msg.value);
         NFTsPerWallet[user_addr]++;
         _totalNFTsMinted++;
         emit isSimpleMinted(user_addr, randomMintedNfts);
