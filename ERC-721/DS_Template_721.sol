@@ -180,7 +180,7 @@ using Address for address;
         onlyOwner
         contractIsNotPaused
     {
-        require(maxMints <= 5, "Max Mint Set limit is 5");
+        require(maxMints <= 5 && maxMints !=_maxMints, "Max Mint Set Error");
         _maxMints = maxMints;
     }
 
@@ -247,7 +247,7 @@ using Address for address;
         onlyOwner
         contractIsNotPaused
     {
-        require(maxNFTsPerWallet<=_maxMints, "Max NFTs per wallet should be less than or equal to max Mint Limit");
+        require(maxNFTsPerWallet<=_maxMints && maxNFTsPerWallet!=_maxNFTsPerWallet , "Max NFTs per wallet setting error");
         _maxNFTsPerWallet = maxNFTsPerWallet;
     }
 
